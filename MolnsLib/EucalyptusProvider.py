@@ -153,25 +153,24 @@ class EucalyptusProvider(EucalyptusBase):
         try:
             logging.debug("installing software on server (ip={0})".format(ip))
             install_vm_instance = installSoftware.InstallSW(ip, config=self)
-            #install_vm_instance.run_with_logging()
-            # create image
-            logging.debug("Shutting down instance")
-            self.eucalyptus.stop_eucalyptus_instances([instance])
-            #logging.debug("Creating image")
-            #image_id = instance.create_image(name=self._get_image_name())
-            logging.debug("Finding volume of instance")
-            vol = None
-            for v in self.eucalyptus.conn.get_all_volumes():
-                if v.attach_data is not None and v.attach_data.instance_id == instance.id:
-                    vol = v
-                    break
-            if vol is None:
-                raise Exception("Can not find volume associated with instance.  Base image must be an EBS backed image.")
-            snap = vol.create_snapshot()
-            logging.debug('Snapshot {0} of volume {1}'.format(snap.id, vol.id))
-            #image_id = self.eucalyptus.conn.register_image(name=self._get_image_name(), snapshot_id=snap.id, delete_root_volume_on_termination=True)
-            #deleteOnTermination
-            image_id = self.eucalyptus.conn.register_image(name=self._get_image_name(), snapshot_id=snap.id)
+            install_vm_instance.run_with_logging()
+            #logging.debug("Shutting down instance")
+            #self.eucalyptus.stop_eucalyptus_instances([instance])
+            logging.debug("Creating image")
+            image_id = instance.create_image(name=self._get_image_name())
+#            logging.debug("Finding volume of instance")
+#            vol = None
+#            for v in self.eucalyptus.conn.get_all_volumes():
+#                if v.attach_data is not None and v.attach_data.instance_id == instance.id:
+#                    vol = v
+#                    break
+#            if vol is None:
+#                raise Exception("Can not find volume associated with instance.  Base image must be an EBS backed image.")
+#            snap = vol.create_snapshot()
+#            logging.debug('Snapshot {0} of volume {1}'.format(snap.id, vol.id))
+#            #image_id = self.eucalyptus.conn.register_image(name=self._get_image_name(), snapshot_id=snap.id, delete_root_volume_on_termination=True)
+#            #deleteOnTermination
+#            image_id = self.eucalyptus.conn.register_image(name=self._get_image_name(), snapshot_id=snap.id)
             logging.debug("Image created: {0}".format(image_id))
         except Exception as e:
             logging.exception(e)
