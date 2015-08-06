@@ -13,8 +13,8 @@ import installSoftware
 import ssh_deploy
 from molns_provider import ProviderBase, ProviderException
 
-#logging.getLogger('boto').setLevel(logging.ERROR)
-logging.getLogger('boto').setLevel(logging.CRITICAL)
+logging.getLogger('boto').setLevel(logging.ERROR)
+#logging.getLogger('boto').setLevel(logging.CRITICAL)
 
 
 ##########################################
@@ -153,9 +153,9 @@ class EucalyptusProvider(EucalyptusBase):
         try:
             logging.debug("installing software on server (ip={0})".format(ip))
             install_vm_instance = installSoftware.InstallSW(ip, config=self)
-            install_vm_instance.run_with_logging()
-            #logging.debug("Shutting down instance")
-            #self.eucalyptus.stop_eucalyptus_instances([instance])
+            #install_vm_instance.run_with_logging()
+            logging.debug("Shutting down instance")
+            self.eucalyptus.stop_eucalyptus_instances([instance])
             logging.debug("Creating image")
             image_id = instance.create_image(name=self._get_image_name())
 #            logging.debug("Finding volume of instance")
@@ -509,12 +509,17 @@ class CreateVM:
         instances = reservation.instances
         num_instance = len(instances) 
         num_running = 0
+        num_terminated = 0
         while num_running < num_instance:
             num_running = 0
             for instance in instances:
                 instance.update()
                 if instance.state == 'running':
                     num_running += 1
+                if instance.state == 'terminated':
+                    num_terminated += 1
+                if num_terminated == num_instance:
+                    raise ProviderException("Error starting Eucalyptus instances(s)")
                 if num_running < num_instance: 
                     time.sleep(5)
         print "Eucalyptus instances started."
