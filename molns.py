@@ -29,6 +29,28 @@ class MOLNSConfig(Datastore):
 ###############################################
 class MOLNSbase():
     @classmethod
+    def merge_config(self, obj, config):
+        for key, conf, value in obj.get_config_vars():
+            if key not in config:
+                if value is not None:
+                    myval = value
+                else:
+                    if 'default' in conf and conf['default']:
+                        if callable(conf['default']):
+                            f1 = conf['default']
+                            try:
+                                myval = f1(obj)
+                            except TypeError:
+                                myval = None
+                        else:
+                            myval = conf['default']
+                    else:
+                        myval = None
+                obj.config[key] = myval
+            else:
+                obj.config[key] = config[key]
+
+    @classmethod
     def _get_workerobj(cls, args, config):
         # Name
         worker_obj = None
@@ -113,7 +135,7 @@ class MOLNSController(MOLNSbase):
         except DatastoreException as e:
             controller_obj = config.create_object(ptype=provider_obj.type, name=controller_name, kind='Controller', provider_id=provider_obj.id)
             msg += "Creating new controller\n"
-        controller_obj.config = data['config']
+        cls.merge_config(controller_obj, data['config'])
         config.save_object(controller_obj, kind='Controller')
         msg += "Controller data imported\n"
         return {'msg':msg}
@@ -133,21 +155,25 @@ class MOLNSController(MOLNSbase):
             raise MOLNSException("no config specified")
         if name is None and provider_type is None:
             raise MOLNSException("Controller name or provider type must be specified")
-        if name is None:
+        obj = None
+        if obj is None and name is not None:
+            try:
+                obj = config.get_object(name, kind='Controller')
+            except DatastoreException as e:
+                pass
+        if obj is None and provider_type is not None:
             if provider_type not in VALID_PROVIDER_TYPES:
                 raise MOLNSException("Unknown provider type '{0}'".format(provider_type))
             p_hand = get_provider_handle('Controller',provider_type)
             obj = p_hand('__tmp__',data={},config_dir=config.config_dir)
-        else:
-            try:
-                obj = config.get_object(name, kind='Controller')
-            except DatastoreException as e:
-                raise MOLNSException("Controller {0} not found".format(name))
+        if obj is None:
+            raise MOLNSException("Controller {0} not found".format(name))
 
         ret = []
         for key, conf, value in obj.get_config_vars():
             if 'ask' in conf and not conf['ask']:
                 continue
+            question = conf['q']
             if value is not None:
                 myval = value
             else:
@@ -165,6 +191,7 @@ class MOLNSController(MOLNSbase):
             if myval is not None and 'obfuscate' in conf and conf['obfuscate']:
                 myval = '********'
             ret.append({
+                'question':question,
                 'key':key,
                 'value': myval,
                 'type':'string'
@@ -366,7 +393,7 @@ class MOLNSController(MOLNSbase):
 
 
     @classmethod
-    def start_controller(cls, args, config):
+    def start_controller(cls, args, config, password=None):
         """ Start the MOLNs controller. """
         logging.debug("MOLNSController.start_controller(args={0})".format(args))
         controller_obj = cls._get_controllerobj(args, config)
@@ -392,7 +419,7 @@ class MOLNSController(MOLNSbase):
             inst = controller_obj.start_instance()
         # deploying
         sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
-        sshdeploy.deploy_ipython_controller(inst.ip_address)
+        sshdeploy.deploy_ipython_controller(inst.ip_address, notebook_password=password)
         sshdeploy.deploy_molns_webserver(inst.ip_address)
         #sshdeploy.deploy_stochss(inst.ip_address, port=443)
 
@@ -548,7 +575,7 @@ class MOLNSWorkerGroup(MOLNSbase):
         except DatastoreException as e:
             worker_obj = config.create_object(ptype=provider_obj.type, name=worker_name, kind='WorkerGroup', provider_id=provider_obj.id, controller_id=controller_obj.id)
             msg += "Creating new worker group\n"
-        worker_obj.config = data['config']
+        cls.merge_config(worker_obj, data['config'])
         config.save_object(worker_obj, kind='WorkerGroup')
         msg += "Worker group data imported\n"
         return {'msg':msg}
@@ -568,20 +595,24 @@ class MOLNSWorkerGroup(MOLNSbase):
             raise MOLNSException("no config specified")
         if name is None and provider_type is None:
             raise MOLNSException("'name' or 'provider_type' must be specified.")
-        if name is None:
+        obj = None
+        if obj is None and name is not None:
+            try:
+                obj = config.get_object(name, kind='WorkerGroup')
+            except DatastoreException as e:
+                pass
+        if obj is None and provider_type is not None:
             if provider_type not in VALID_PROVIDER_TYPES:
                 raise MOLNSException("Unknown provider type '{0}'".format(provider_type))
             p_hand = get_provider_handle('WorkerGroup',provider_type)
             obj = p_hand('__tmp__',data={},config_dir=config.config_dir)
-        else:
-            try:
-                obj = config.get_object(name, kind='WorkerGroup')
-            except DatastoreException as e:
-                raise MOLNSException("Worker group {0} not found".format(name))
+        if obj is None:
+            raise MOLNSException("Worker group {0} not found".format(name))
         ret = []
         for key, conf, value in obj.get_config_vars():
             if 'ask' in conf and not conf['ask']:
                 continue
+            question = conf['q']
             if value is not None:
                 myval = value
             else:
@@ -599,6 +630,7 @@ class MOLNSWorkerGroup(MOLNSbase):
             if myval is not None and 'obfuscate' in conf and conf['obfuscate']:
                 myval = '********'
             ret.append({
+                'question':question,
                 'key':key,
                 'value': myval,
                 'type':'string'
@@ -878,7 +910,7 @@ class MOLNSWorkerGroup(MOLNSbase):
 
 ###############################################
 
-class MOLNSProvider():
+class MOLNSProvider(MOLNSbase):
     @classmethod
     def provider_export(cls, args, config):
         """ Export the configuration of a provider. """
@@ -926,11 +958,12 @@ class MOLNSProvider():
         except DatastoreException as e:
             provider_obj = config.create_object(name=provider_name, ptype=data['type'], kind='Provider')
             msg += "Creating new provider\n"
-        provider_obj.config = data['config']
+        cls.merge_config(provider_obj, data['config'])
         config.save_object(provider_obj, kind='Provider')
         msg += "Provider data imported\n"
         return {'msg':msg}
-        
+
+
     @classmethod
     def provider_get_config(cls, name=None, provider_type=None, config=None):
         """ Return a list of dict of config var for the provider config.
@@ -946,20 +979,24 @@ class MOLNSProvider():
             raise MOLNSException("no config specified")
         if name is None and provider_type is None:
             raise MOLNSException("provider name or type must be specified")
-        if name is None:
+        obj = None
+        if obj is None and name is not None:
+            try:
+                obj = config.get_object(name, kind='Provider')
+            except DatastoreException as e:
+                pass
+        if obj is None and provider_type is not None:
             if provider_type not in VALID_PROVIDER_TYPES:
                 raise MOLNSException("unknown provider type '{0}'".format(provider_type))
             p_hand = get_provider_handle('Provider',provider_type)
             obj = p_hand('__tmp__',data={},config_dir=config.config_dir)
-        else:
-            try:
-                obj = config.get_object(name, kind='Provider')
-            except DatastoreException as e:
-                raise MOLNSException("provider {0} not found".format(name))
+        if obj is None:
+            raise MOLNSException("provider {0} not found".format(name))
         ret = []
         for key, conf, value in obj.get_config_vars():
             if 'ask' in conf and not conf['ask']:
                 continue
+            question = conf['q']
             if value is not None:
                 myval = value
             else:
@@ -977,6 +1014,7 @@ class MOLNSProvider():
             if myval is not None and 'obfuscate' in conf and conf['obfuscate']:
                 myval = '********'
             ret.append({
+                'question':question,
                 'key':key,
                 'value': myval,
                 'type':'string'
@@ -1121,7 +1159,7 @@ class MOLNSProvider():
         config.delete_object(name=args[0], kind='Provider')
 ###############################################
 
-class MOLNSInstances():
+class MOLNSInstances(MOLNSbase):
     @classmethod
     def show_instances(cls, args, config):
         """ List all instances in the db """
