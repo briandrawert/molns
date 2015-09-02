@@ -191,7 +191,7 @@ class EucalyptusProvider(EucalyptusBase):
         self.connected = True
 
     def _get_image_name(self):
-        return "MOLNS_{0}_{1}_{2}".format(self.PROVIDER_TYPE, self.name, int(time.time()))
+        return "MOLNS_IMAGE_{0}_{1}".format(self.name, int(time.time()))
 
 ##########################################
 class EucalyptusController(EucalyptusBase):

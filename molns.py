@@ -1455,6 +1455,7 @@ def parseArgs():
     arg_list = sys.argv[1:]
     config_dir = './.molns/'
     while len(arg_list) > 0 and arg_list[0].startswith('--'):
+        print "arg_list = {0}".format(arg_list)
         if arg_list[0].startswith('--config='):
             config_dir = sys.argv[1].split('=',2)[1]
         if arg_list[0].startswith('--debug'):
