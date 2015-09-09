@@ -317,7 +317,7 @@ class MOLNSController(MOLNSbase):
 
     @classmethod
     def put_controller(cls, args, config):
-        """ Copy a local file to the controller's shared area. """
+        """ Copy a local file to the controller's and workers' shared area. """
         logging.debug("MOLNSController.put_controller(args={0})".format(args))
         controller_obj = cls._get_controllerobj(args, config)
         if controller_obj is None: return
@@ -1213,6 +1213,41 @@ class MOLNSInstances(MOLNSbase):
                 print "instance {0} deleted".format(i.id)
         else:
             print "No instance found"
+
+
+###############################################
+
+class MOLNSExec(MOLNSbase):
+    @classmethod
+    def start_job(cls, args, config):
+        ''' Execute a process on the controller.'''
+        raise Execption('TODO')
+
+    @classmethod
+    def job_status(cls, args, config):
+        ''' Check if a process is still running on the controller.'''
+        raise Execption('TODO')
+
+    @classmethod
+    def job_logs(cls, args, config):
+        ''' Return the output (stdout/stderr) of the process.'''
+        raise Execption('TODO')
+
+    @classmethod
+    def fetch_job_results(cls, args, config):
+        ''' Transfer files created by the process from the controller to local file system.'''
+        raise Execption('TODO')
+
+
+    @classmethod
+    def cleanup_job(cls, args, config):
+        ''' Remove process files from the controller (will kill active processes if running).'''
+        raise Execption('TODO')
+
+    @classmethod
+    def list_jobs(cls, args, config):
+        ''' List all jobs. '''
+        raise Execption('TODO')
 
 
 ##############################################################################################
