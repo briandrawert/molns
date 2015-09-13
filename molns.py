@@ -9,6 +9,7 @@ import subprocess
 from MolnsLib.ssh_deploy import SSHDeploy
 import multiprocessing
 import json
+from collections import OrderedDict
 
 import logging
 logger = logging.getLogger()
@@ -1244,33 +1245,86 @@ class MOLNSExec(MOLNSbase):
     @classmethod
     def start_job(cls, args, config):
         ''' Execute a process on the controller.'''
-        raise Execption('TODO')
+        # Get Controller
+        if len(args) < 2:
+             raise MOLNSException("USAGE: molns exec start name [Command]\n"\
+                "\tExecute 'Command' on the controller with the given name.")
+       
+        else:
+            controller_obj = cls._get_controllerobj(args, config)
+            if controller_obj is None:
+                raise Exception("Countroller {0} not found".format(args[0]))
+        # Check if controller is running
+        instance_list = config.get_all_instances(controller_id=controller_obj.id)
+        is_running = False
+        if len(instance_list) > 0:
+            for i in instance_list:
+                status = controller_obj.get_instance_status(i)
+                if status == controller_obj.STATUS_RUNNING:
+                    is_running = True
+                    break
+        if not is_running:
+            raise MOLNSException("Controller {0} is not running.".format(args[0]))
+        # Create Datastore object
+        exec_str = args[1]
+        config.start_job(controller_id=controller_obj.id, exec_str=exec_str)
+        # parse command, retreive files to upload (iff they are in the local directory)
+        # create remote direct=ory
+        # transfer files, and helper file (to .molns subdirectory)
+        # execute command
+        #
+        return {'msg':"Job started."}
+
 
     @classmethod
     def job_status(cls, args, config):
         ''' Check if a process is still running on the controller.'''
-        raise Execption('TODO')
+        raise Exception('TODO')
 
     @classmethod
     def job_logs(cls, args, config):
         ''' Return the output (stdout/stderr) of the process.'''
-        raise Execption('TODO')
+        raise Exception('TODO')
 
     @classmethod
     def fetch_job_results(cls, args, config):
         ''' Transfer files created by the process from the controller to local file system.'''
-        raise Execption('TODO')
+        raise Exception('TODO')
 
 
     @classmethod
     def cleanup_job(cls, args, config):
         ''' Remove process files from the controller (will kill active processes if running).'''
-        raise Execption('TODO')
+        if len(args) < 1:
+             raise MOLNSException("USAGE: molns exec cleanup [JobID]\n"\
+                "\tRemove process files from the controller (will kill active processes if running).")
+        j = config.get_job(jobID=args[0])
+        config.delete_job(j)
+        return {'msg':"Job {0} deleted".format(args[0])}
 
     @classmethod
     def list_jobs(cls, args, config):
-        ''' List all jobs. '''
-        raise Execption('TODO')
+        ''' List all jobs. If 'name' is specified, list all jobs on named controller.'''
+        if len(args) > 0:
+            controller_obj = cls._get_controllerobj(args, config)
+            if controller_obj is None:
+                raise Exception("Countroller {0} not found".format(args[0]))
+            jobs = config.get_all_jobs(controller_id=controller_obj.id)
+        else:
+            jobs = config.get_all_jobs()
+
+        if len(jobs) == 0:
+            return {'msg':"No jobs found"}
+        else:
+            table_data = []
+            for j in jobs:
+                try:
+                    p = config.get_object_by_id(j.controller_id, 'Controller')
+                    controller_name = p.name
+                except DatastoreException as e:
+                    controller_name = 'ERROR: {0}'.format(e)
+                table_data.append([j.jobID, controller_name, j.exec_str, j.date])
+            return {'type':'table','column_names':['JobID', 'Controller', 'Command', 'Date'], 'data':table_data}
 
 
 ##############################################################################################
@@ -1463,8 +1517,8 @@ COMMAND_LIST = [
                 function=MOLNSWorkerGroup.add_worker_groups),
             Command('status', {'name':None},
                 function=MOLNSWorkerGroup.status_worker_groups),
-            #Command('stop', {'name':None},
-            #    function=MOLNSWorkerGroup.stop_worker_groups),
+            Command('stop', {'name':None},
+                function=MOLNSWorkerGroup.terminate_worker_groups),
             Command('terminate', {'name':None},
                 function=MOLNSWorkerGroup.terminate_worker_groups),
             Command('export',{'name':None},
@@ -1497,6 +1551,20 @@ COMMAND_LIST = [
                 function=MOLNSInstances.delete_instance),
             Command('clear', {},
                 function=MOLNSInstances.clear_instances),
+        ]),
+        SubCommand('exec',[
+            Command('start', OrderedDict([('name',None), ('command',None)]),
+                function=MOLNSExec.start_job),
+            Command('status', {'jobID':None},
+                function=MOLNSExec.job_status),
+            Command('logs', {'jobID':None},
+                function=MOLNSExec.job_logs),
+            Command('fetch', OrderedDict([('jobID',None), ('filename', None)]),
+                function=MOLNSExec.fetch_job_results),
+            Command('cleanup', {'jobID':None},
+                function=MOLNSExec.cleanup_job),
+            Command('list', {'name':None},
+                function=MOLNSExec.list_jobs),
         ]),
                 
                 ]
