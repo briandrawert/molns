@@ -420,7 +420,11 @@ class Datastore():
     def get_job(self,  jobID):
         """ Get the objet for a job. """
         #logging.debug("get_job(jobID={0})".format(jobID))
-        j = self.session.query(ExecJob).filter_by(jobID=jobID).first()
+        try:
+            id = int(jobID)
+            j = self.session.query(ExecJob).filter_by(id=id).first()
+        except Exception:
+            j = self.session.query(ExecJob).filter_by(jobID=jobID).first()
         if j is None:
             raise DatastoreException("Job {0} not found".format(jobID))
         return j

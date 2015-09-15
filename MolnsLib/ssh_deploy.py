@@ -331,11 +331,12 @@ class SSHDeploy:
             files_to_transfer = []
             remote_command_list = []
             for c in exec_str.split():
+                c2 = c
                 if c.startswith('~'):
-                    c = os.path.expanduser(c)
-                if os.path.isfile(c):
-                    files_to_transfer.append(c)
-                    remote_command_list.append(os.path.basename(c))
+                    c2 = os.path.expanduser(c)
+                if os.path.isfile(c2):
+                    files_to_transfer.append(c2)
+                    remote_command_list.append(os.path.basename(c2))
                 else:
                     remote_command_list.append(c)
             # Transfer job files

@@ -1288,7 +1288,7 @@ class MOLNSExec(MOLNSbase):
         sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
         sshdeploy.deploy_remote_execution_job(inst.ip_address, job.jobID, exec_str)
         #
-        return {'msg':"Job started, JobID={0}".format(job.jobID)}
+        return {'msg':"Job started, ID={1}  JobID={0}".format(job.jobID,job.id)}
 
     @classmethod
     def job_status(cls, args, config):
@@ -1381,8 +1381,8 @@ class MOLNSExec(MOLNSbase):
                     controller_name = p.name
                 except DatastoreException as e:
                     controller_name = 'ERROR: {0}'.format(e)
-                table_data.append([j.jobID, controller_name, j.exec_str, j.date])
-            return {'type':'table','column_names':['JobID', 'Controller', 'Command', 'Date'], 'data':table_data}
+                table_data.append([j.id, j.jobID, controller_name, j.exec_str, j.date])
+            return {'type':'table','column_names':['ID', 'JobID', 'Controller', 'Command', 'Date'], 'data':table_data}
 
 
 ##############################################################################################
