@@ -1243,6 +1243,22 @@ class MOLNSInstances(MOLNSbase):
 
 class MOLNSExec(MOLNSbase):
     @classmethod
+    def _get_ip_for_job(cls, job, config):
+        instance_list = config.get_controller_instances(controller_id=job.controller_id)
+        controller_obj = config.get_object_by_id(job.controller_id, 'Controller')
+        if controller_obj is None:
+            raise MOLNSException("Could not find the controller for this job")
+        # Check if they are running
+        ip = None
+        if len(instance_list) > 0:
+            for i in instance_list:
+                status = controller_obj.get_instance_status(i)
+                logging.debug("instance={0} has status={1}".format(i, status))
+                if status == controller_obj.STATUS_RUNNING:
+                    ip = i.ip_address
+        return ip, controller_obj
+
+    @classmethod
     def start_job(cls, args, config):
         ''' Execute a process on the controller.'''
         # Get Controller
@@ -1256,40 +1272,75 @@ class MOLNSExec(MOLNSbase):
                 raise Exception("Countroller {0} not found".format(args[0]))
         # Check if controller is running
         instance_list = config.get_all_instances(controller_id=controller_obj.id)
-        is_running = False
+        inst = None
         if len(instance_list) > 0:
             for i in instance_list:
                 status = controller_obj.get_instance_status(i)
                 if status == controller_obj.STATUS_RUNNING:
-                    is_running = True
+                    inst = i
                     break
-        if not is_running:
+        if inst is None:
             raise MOLNSException("Controller {0} is not running.".format(args[0]))
         # Create Datastore object
         exec_str = args[1]
-        config.start_job(controller_id=controller_obj.id, exec_str=exec_str)
-        # parse command, retreive files to upload (iff they are in the local directory)
-        # create remote direct=ory
-        # transfer files, and helper file (to .molns subdirectory)
+        job = config.start_job(controller_id=controller_obj.id, exec_str=exec_str)
         # execute command
+        sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
+        sshdeploy.deploy_remote_execution_job(inst.ip_address, job.jobID, exec_str)
         #
-        return {'msg':"Job started."}
-
+        return {'msg':"Job started, JobID={0}".format(job.jobID)}
 
     @classmethod
     def job_status(cls, args, config):
         ''' Check if a process is still running on the controller.'''
-        raise Exception('TODO')
+        if len(args) < 1:
+             raise MOLNSException("USAGE: molns exec status [JobID]\n"\
+                "\tCheck if a process is still running on the controller.")
+        j = config.get_job(jobID=args[0])
+        ip, controller_obj = cls._get_ip_for_job(j, config)
+        if ip is None:
+            return {'msg': "No active instance for this controller"}
+        sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
+        (running, msg) = sshdeploy.remote_execution_job_status(ip, j.jobID)
+        return {'running':running, 'msg':msg}
 
     @classmethod
     def job_logs(cls, args, config):
         ''' Return the output (stdout/stderr) of the process.'''
-        raise Exception('TODO')
+        if len(args) < 1:
+             raise MOLNSException("USAGE: molns exec logs [JobID] [seek]\n"\
+                "\tReturn the output (stdout/stderr) of the process (starting from 'seek').")
+        j = config.get_job(jobID=args[0])
+        ip, controller_obj = cls._get_ip_for_job(j, config)
+        seek = 0
+        if len(args) > 1:
+            try:
+                seek = int(args[1])
+            except Exception:
+                raise MOLNSException("'seek' must be an integer")
+        sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
+        logs = sshdeploy.remote_execution_get_job_logs(ip, j.jobID, seek)
+        return {'msg': logs}
+
 
     @classmethod
-    def fetch_job_results(cls, args, config):
+    def fetch_job_results(cls, args, config, overwrite=False):
         ''' Transfer files created by the process from the controller to local file system.'''
-        raise Exception('TODO')
+        if len(args) < 2:
+             raise MOLNSException("USAGE: molns exec fetch [JobID] [filename]\n"\
+                "\tRemove process files from the controller (will kill active processes if running).")
+        filename = args[1]
+        j = config.get_job(jobID=args[0])
+        if j is None:
+            return {'msg':"Job not found"}
+        ip, controller_obj = cls._get_ip_for_job(j, config)
+        if ip is None:
+            return {'msg': "No active instance for this controller"}
+        sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
+        if os.path.isfile(filename) and not overwrite and (len(args) < 3 or args[2] != '--force'):
+            raise MOLNSException("File {0} exists, use '--force' or overwrite=True to ignore.")
+        sshdeploy.remote_execution_fetch_file(ip, j.jobID, filename)
+        return {'msg': "File transfer complete."}
 
 
     @classmethod
@@ -1299,6 +1350,13 @@ class MOLNSExec(MOLNSbase):
              raise MOLNSException("USAGE: molns exec cleanup [JobID]\n"\
                 "\tRemove process files from the controller (will kill active processes if running).")
         j = config.get_job(jobID=args[0])
+        if j is None:
+            return {'msg':"Job not found"}
+        ip, controller_obj = cls._get_ip_for_job(j, config)
+        if ip is None:
+            return {'msg': "No active instance for this controller"}
+        sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
+        sshdeploy.remote_execution_delete_job(ip, j.jobID)
         config.delete_job(j)
         return {'msg':"Job {0} deleted".format(args[0])}
 

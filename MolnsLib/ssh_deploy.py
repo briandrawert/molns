@@ -30,6 +30,9 @@ class SSHDeploy:
     DEFAULT_IPCONTROLLER_PORT = 9000
 
     DEFAULT_PYURDME_TEMPDIR="/mnt/pyurdme_tmp"
+    
+    REMOTE_EXEC_JOB_PATH = "/mnt/molnsexec"
+
 
 
     def __init__(self, config=None, config_dir=None):
@@ -313,6 +316,127 @@ class SSHDeploy:
         except Exception as e:
             raise SSHDeployException("Could not determine the number of processors on the remote system: {0}".format(e))
 
+    def deploy_remote_execution_job(self, ip_address, jobID, exec_str):
+        base_path = "{0}/{1}".format(self.REMOTE_EXEC_JOB_PATH,jobID)
+        EXEC_HELPER_FILENAME = 'molns_exec_helper.py'
+        try:
+            self.connect(ip_address, self.ssh_endpoint)
+            # parse command, retreive files to upload (iff they are in the local directory)
+            # create remote direct=ory
+            self.exec_command("sudo mkdir -p {0}".format(base_path))
+            self.exec_command("sudo chown ubuntu {0}".format(base_path))
+            self.exec_command("mkdir -p {0}/.molns/".format(base_path))
+            sftp = self.ssh.open_sftp()
+            # Parse exec_str to get job files
+            files_to_transfer = []
+            remote_command_list = []
+            for c in exec_str.split():
+                if c.startswith('~'):
+                    c = os.path.expanduser(c)
+                if os.path.isfile(c):
+                    files_to_transfer.append(c)
+                    remote_command_list.append(os.path.basename(c))
+                else:
+                    remote_command_list.append(c)
+            # Transfer job files
+            for f in files_to_transfer:
+                logging.debug('Uploading file {0}'.format(f))
+                sftp.put(f, "{0}/{1}".format(base_path, os.path.basename(f)))
+            # Transfer helper file (to .molns subdirectory)
+            logging.debug('Uploading file {0}'.format(EXEC_HELPER_FILENAME))
+            sftp.put(
+                os.path.join(os.path.dirname(os.path.abspath(__file__)),EXEC_HELPER_FILENAME),
+                "{0}/.molns/{1}".format(base_path,EXEC_HELPER_FILENAME)
+                )
+            # Write 'cmd' file
+            remote_command = " ".join(remote_command_list)
+            logging.debug("Writing remote_command = {0}".format(remote_command))
+            cmd_file = sftp.file("{0}/.molns/{1}".format(base_path,'cmd'), 'w')
+            cmd_file.write(remote_command)
+            cmd_file.close()
+            # execute command
+            logging.debug("Executing command")
+            self.exec_command("cd {0};python {0}/.molns/{1} &".format(base_path, EXEC_HELPER_FILENAME))
+            self.ssh.close()
+        except Exception as e:
+            print "Remote execution failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
+            raise sys.exc_info()[1], None, sys.exc_info()[2]
+
+    def remote_execution_job_status(self, ip_address, jobID):
+        ''' Check the status of a remote process.
+        
+        Returns: Tuple with two elements: (Is_Running, Message)
+            Is_Running: bool    True if the process is running
+            Message: str        Description of the status
+        '''
+        base_path = "{0}/{1}".format(self.REMOTE_EXEC_JOB_PATH,jobID)
+        try:
+            self.connect(ip_address, self.ssh_endpoint)
+            sftp = self.ssh.open_sftp()
+            # Does the 'pid' file exists remotely?
+            try:
+                sftp.stat("{0}/.molns/pid".format(base_path))
+            except (IOError, OSError) as e:
+                self.ssh.close()
+                raise SSHDeployException("Remote process not started (pid file not found")
+            # Does the 'return_value' file exist?
+            try:
+                sftp.stat("{0}/.molns/return_value".format(base_path))
+                # Process is complete
+                return (False, "Remote process finished")
+            except (IOError, OSError) as e:
+                pass
+            # is the process running?
+            try:
+                self.exec_command("kill -0 `cat {0}/.molns/pid` > /dev/null 2&>1".format(base_path))
+                return (True, "Remote process running")
+            except SSHDeployException as e:
+                raise SSHDeployException("Remote process not running (process not found)")
+            finally:
+                self.ssh.close()
+        except Exception as e:
+            print "Remote execution failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
+            raise sys.exc_info()[1], None, sys.exc_info()[2]
+
+    def remote_execution_get_job_logs(self, ip_address, jobID, seek):
+        base_path = "{0}/{1}".format(self.REMOTE_EXEC_JOB_PATH,jobID)
+        try:
+            self.connect(ip_address, self.ssh_endpoint)
+            sftp = self.ssh.open_sftp()
+            log = sftp.file("{0}/.molns/stdout".format(base_path), 'r')
+            log.seek(seek)
+            output = log.read()
+            self.ssh.close()
+            return output
+        except Exception as e:
+            print "Remote execution failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
+            raise sys.exc_info()[1], None, sys.exc_info()[2]
+
+    def remote_execution_delete_job(self, ip_address, jobID):
+        base_path = "{0}/{1}".format(self.REMOTE_EXEC_JOB_PATH,jobID)
+        try:
+            self.connect(ip_address, self.ssh_endpoint)
+            self.exec_command("rm -rf {0}/* {0}/.molns/".format(base_path))
+            self.exec_command("sudo rmdir {0}".format(base_path))
+            self.ssh.close()
+        except Exception as e:
+            print "Remote execution failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
+            raise sys.exc_info()[1], None, sys.exc_info()[2]
+
+    def remote_execution_fetch_file(self, ip_address, jobID, filename):
+        base_path = "{0}/{1}".format(self.REMOTE_EXEC_JOB_PATH,jobID)
+        try:
+            self.connect(ip_address, self.ssh_endpoint)
+            sftp = self.ssh.open_sftp()
+            sftp.get("{0}/{1}".format(base_path, filename), filename)
+            self.ssh.close()
+        except Exception as e:
+            print "Remote execution failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
+            raise sys.exc_info()[1], None, sys.exc_info()[2]
+
+
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     def deploy_stochss(self, ip_address, port=1443):
         try:
             print "{0}:{1}".format(ip_address, self.ssh_endpoint)
