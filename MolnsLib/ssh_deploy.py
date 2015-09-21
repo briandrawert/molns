@@ -280,7 +280,7 @@ class SSHDeploy:
                 time.sleep(self.SSH_CONNECT_WAITTIME)
         raise SSHDeployException("ssh connect Failed!!!\t{0}:{1}".format(hostname,self.ssh_endpoint))
 
-    def deploy_molns_webserver(self, ip_address):
+    def deploy_molns_webserver(self, ip_address, openWebBrowser=True):
         try:
             self.connect(ip_address, self.ssh_endpoint)
             self.exec_command("sudo rm -rf /usr/local/molns_webroot")
@@ -292,18 +292,19 @@ class SSHDeploy:
             self.ssh.close()
             print "Deploying MOLNs webserver"
             url = "http://{0}/".format(ip_address)
-            while True:
-                try:
-                    req = urllib2.urlopen(url)
-                    sys.stdout.write("\n")
-                    sys.stdout.flush()
-                    break
-                except Exception as e:
-                    #sys.stdout.write("{0}".format(e))
-                    sys.stdout.write(".")
-                    sys.stdout.flush()
-                    time.sleep(1)
-            webbrowser.open(url)
+            if openWebBrowser:
+                while True:
+                    try:
+                        req = urllib2.urlopen(url)
+                        sys.stdout.write("\n")
+                        sys.stdout.flush()
+                        break
+                    except Exception as e:
+                        #sys.stdout.write("{0}".format(e))
+                        sys.stdout.write(".")
+                        sys.stdout.flush()
+                        time.sleep(1)
+                webbrowser.open(url)
         except Exception as e:
             print "Failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
             raise sys.exc_info()[1], None, sys.exc_info()[2]
@@ -424,12 +425,12 @@ class SSHDeploy:
             print "Remote execution failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
             raise sys.exc_info()[1], None, sys.exc_info()[2]
 
-    def remote_execution_fetch_file(self, ip_address, jobID, filename):
+    def remote_execution_fetch_file(self, ip_address, jobID, filename, localfilename):
         base_path = "{0}/{1}".format(self.REMOTE_EXEC_JOB_PATH,jobID)
         try:
             self.connect(ip_address, self.ssh_endpoint)
             sftp = self.ssh.open_sftp()
-            sftp.get("{0}/{1}".format(base_path, filename), filename)
+            sftp.get("{0}/{1}".format(base_path, filename), localfilename)
             self.ssh.close()
         except Exception as e:
             print "Remote execution failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)

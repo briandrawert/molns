@@ -353,8 +353,11 @@ class MOLNSController(MOLNSbase):
         """ Get status of the head node of a MOLNs controller. """
         logging.debug("MOLNSController.status_controller(args={0})".format(args))
         if len(args) > 0:
-            controller_obj = cls._get_controllerobj(args, config)
-            if controller_obj is None: return
+            try:
+                controller_obj = cls._get_controllerobj(args, config)
+            except MOLNSException:
+                return {}
+            if controller_obj is None: return {}
             # Check if any instances are assigned to this controller
             instance_list = config.get_controller_instances(controller_id=controller_obj.id)
             table_data = []
@@ -410,7 +413,7 @@ class MOLNSController(MOLNSbase):
 
 
     @classmethod
-    def start_controller(cls, args, config, password=None):
+    def start_controller(cls, args, config, password=None, openWebBrowser=True):
         """ Start the MOLNs controller. """
         logging.debug("MOLNSController.start_controller(args={0})".format(args))
         controller_obj = cls._get_controllerobj(args, config)
@@ -437,7 +440,7 @@ class MOLNSController(MOLNSbase):
         # deploying
         sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
         sshdeploy.deploy_ipython_controller(inst.ip_address, notebook_password=password)
-        sshdeploy.deploy_molns_webserver(inst.ip_address)
+        sshdeploy.deploy_molns_webserver(inst.ip_address, openWebBrowser=openWebBrowser)
         #sshdeploy.deploy_stochss(inst.ip_address, port=443)
 
     @classmethod
@@ -1288,7 +1291,7 @@ class MOLNSExec(MOLNSbase):
         sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
         sshdeploy.deploy_remote_execution_job(inst.ip_address, job.jobID, exec_str)
         #
-        return {'msg':"Job started, ID={1}  JobID={0}".format(job.jobID,job.id)}
+        return {'id':job.id, 'msg':"Job started, ID={1}  JobID={0}".format(job.jobID,job.id)}
 
     @classmethod
     def job_status(cls, args, config):
@@ -1299,7 +1302,7 @@ class MOLNSExec(MOLNSbase):
         j = config.get_job(jobID=args[0])
         ip, controller_obj = cls._get_ip_for_job(j, config)
         if ip is None:
-            return {'msg': "No active instance for this controller"}
+            return {'running':False, 'msg': "No active instance for this controller"}
         sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
         (running, msg) = sshdeploy.remote_execution_job_status(ip, j.jobID)
         return {'running':running, 'msg':msg}
@@ -1327,7 +1330,7 @@ class MOLNSExec(MOLNSbase):
     def fetch_job_results(cls, args, config, overwrite=False):
         ''' Transfer files created by the process from the controller to local file system.'''
         if len(args) < 2:
-             raise MOLNSException("USAGE: molns exec fetch [JobID] [filename]\n"\
+             raise MOLNSException("USAGE: molns exec fetch [JobID] [filename] (destination filename)\n"\
                 "\tRemove process files from the controller (will kill active processes if running).")
         filename = args[1]
         j = config.get_job(jobID=args[0])
@@ -1337,9 +1340,13 @@ class MOLNSExec(MOLNSbase):
         if ip is None:
             return {'msg': "No active instance for this controller"}
         sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
-        if os.path.isfile(filename) and not overwrite and (len(args) < 3 or args[2] != '--force'):
+        if os.path.isfile(filename) and not overwrite and (len(args) < 3 or args[-1] != '--force'):
             raise MOLNSException("File {0} exists, use '--force' or overwrite=True to ignore.")
-        sshdeploy.remote_execution_fetch_file(ip, j.jobID, filename)
+        if len(args) >= 3 and not args[2].startswith('--'):
+            localfile = args[2]
+        else:
+            localfile = filename
+        sshdeploy.remote_execution_fetch_file(ip, j.jobID, filename, localfile)
         return {'msg': "File transfer complete."}
 
 
