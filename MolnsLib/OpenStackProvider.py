@@ -16,7 +16,7 @@ logging.getLogger('novaclient.client').setLevel(logging.ERROR)
 ##########################################
 class OpenStackBase(ProviderBase):
     """ Abstract class for OpenStack. """
-    
+
     SSH_KEY_EXTENSION = ".pem"
     PROVIDER_TYPE = 'OpenStack'
 
@@ -28,9 +28,9 @@ class OpenStackProvider(OpenStackBase):
     """ Provider handle for an open stack service. """
 
     OBJ_NAME = 'OpenStackProvider'
-    
+
     MAX_IMAGE_CREATION_WAITTIME = 1800
-    
+
     CONFIG_VARS = OrderedDict(
     [
     ('nova_username',
@@ -42,7 +42,7 @@ class OpenStackProvider(OpenStackBase):
     ('nova_project_id',
         {'q':'OpenStack project_name', 'default':os.environ.get('OS_TENANT_NAME'), 'ask':True}),
     ('neutron_nic',
-        {'q':'Network ID (leave empty if only one possible network)', 'default':None, 'ask':True}),    
+        {'q':'Network ID (leave empty if only one possible network)', 'default':None, 'ask':True}),
     ('floating_ip_pool',
         {'q':'Name of Floating IP Pool (leave empty if only one possible pool)', 'default':None, 'ask':True}),
     ('nova_version',
@@ -69,10 +69,10 @@ class OpenStackProvider(OpenStackBase):
             'tenant_name' : self.config['nova_project_id'],
             'authurl' : self.config['nova_auth_url']
             }
-    
-    
+
+
     def check_ssh_key(self):
-        """ Check that the SSH key is found locally and remotely. 
+        """ Check that the SSH key is found locally and remotely.
         Returns:
             True if the key is valid, otherwise False.
         """
@@ -85,7 +85,7 @@ class OpenStackProvider(OpenStackBase):
         if not os.path.isfile(ssh_key_file):
             logging.debug("ssh_key_file '{0}' not found".format(ssh_key_file))
             return False
-            
+
         self._connect()
         remote_keys = self.nova.keypairs.list()
         for k in remote_keys:
@@ -119,13 +119,13 @@ class OpenStackProvider(OpenStackBase):
             if g.name == self.config['group_name']:
                 return True
         return False
-    
+
     def create_seurity_group(self):
         """ Create the security group. """
         self._connect()
         g = self.nova.security_groups.create(name=self.config['group_name'], description="MOLNs security group")
         rules = [dict(fr._asdict()) for fr in self.FIREWALL_RULES]
-        for r in rules: # ughly hack to fix naming problem  
+        for r in rules: # ughly hack to fix naming problem
 	    # The keyword argument names are differnt in boto and novaclient...
             r.pop("src_group_name")
             r["cidr"]=r.pop("cidr_ip")
@@ -265,7 +265,7 @@ class OpenStackProvider(OpenStackBase):
         except Exception as e:
             logging.exception(e)
             raise ProviderException("Failed to terminate vm(s)\n{0}".format(e))
-    
+
 
     def _stop_vm(self, instances):
         self._connect()
@@ -354,7 +354,13 @@ class OpenStackProvider(OpenStackBase):
        # Try to attach a floating IP to the controller
         logging.info("Attaching floating ip to the server...")
         try:
-            floating_ip = self.nova.floating_ips.create(self.config['floating_ip_pool'])
+            try:
+                floating_ip = [ip for ip in nc.floating_ips.list() if ip.instance_id == None ].pop()
+            except Exception:
+                logging.info("No floating ip for reuse available, allocating a new one")
+                pass
+            if floating_ip is None :
+                floating_ip = self.nova.floating_ips.create(self.config['floating_ip_pool'])
             instance.add_floating_ip(floating_ip)
             logging.debug("ip={0}".format(floating_ip.ip))
             return floating_ip.ip
@@ -364,7 +370,7 @@ class OpenStackProvider(OpenStackBase):
 ##########################################
 class OpenStackController(OpenStackBase):
     """ Provider handle for an open stack controller. """
-    
+
     OBJ_NAME = 'OpenStackController'
 
     CONFIG_VARS = OrderedDict(
@@ -415,7 +421,7 @@ class OpenStackController(OpenStackBase):
             self.provider._terminate_instances([instances.provider_instance_identifier])
             self.provider._delete_floating_ip(instances.ip_address)
             self.datastore.delete_instance(instances)
-    
+
     def get_instance_status(self, instance):
         try:
             status = self.provider._get_instance_status(instance.provider_instance_identifier)
@@ -433,7 +439,7 @@ class OpenStackController(OpenStackBase):
 ##########################################
 class OpenStackWorkerGroup(OpenStackController):
     """ Provider handle for an open stack controller. """
-    
+
     OBJ_NAME = 'OpenStackWorkerGroup'
 
     CONFIG_VARS = OrderedDict(
