@@ -43,6 +43,7 @@ class SSHDeploy:
         self.endpoint = self.DEFAULT_PRIVATE_NOTEBOOK_PORT
         self.ssh_endpoint = self.DEFAULT_SSH_PORT
         self.keyfile = config.sshkeyfilename()
+        self.provider_name = config.name
         self.ssh = paramiko.SSHClient()
         self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.profile = 'default'
@@ -147,7 +148,7 @@ class SSHDeploy:
         s3_config_file = sftp.file(remote_file_name, 'w')
         config = {}
         config["provider_type"] = self.config.type
-        config["bucket_name"] = "molns_storage_{0}".format(self.get_cluster_id()) 
+        config["bucket_name"] = "molns_storage_{1}_{0}".format(self.get_cluster_id(), self.provider_name)
         config["credentials"] = self.config.get_config_credentials()
         s3_config_file.write(json.dumps(config))
         s3_config_file.close()
