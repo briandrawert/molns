@@ -123,23 +123,24 @@ class SSHDeploy:
                 "c.IPControllerApp.log_level=20",
                 "c.HeartMonitor.period=10000",
                 "c.HeartMonitor.max_heartmonitor_misses=10",
+                "c.HubFactory.db_class = \"SQLiteDB\"",
                 ]))
         notebook_config_file.close()
 
-        # IPython startup code
-        remote_file_name='{0}startup/molns_dill_startup.py'.format(self.profile_dir_server)
-        dill_init_file = sftp.file(remote_file_name, 'w+')
-        dill_init_file.write('\n'.join([
-                'import dill',
-                'from IPython.utils import pickleutil',
-                'pickleutil.use_dill()',
-                'import logging',
-                "logging.getLogger('UFL').setLevel(logging.ERROR)",
-                "logging.getLogger('FFC').setLevel(logging.ERROR)"
-                "import cloud",
-                "logging.getLogger('Cloud').setLevel(logging.ERROR)"
-                ]))
-        dill_init_file.close()
+#        # IPython startup code
+#        remote_file_name='{0}startup/molns_dill_startup.py'.format(self.profile_dir_server)
+#        dill_init_file = sftp.file(remote_file_name, 'w+')
+#        dill_init_file.write('\n'.join([
+#                'import dill',
+#                'from IPython.utils import pickleutil',
+#                'pickleutil.use_dill()',
+#                'import logging',
+#                "logging.getLogger('UFL').setLevel(logging.ERROR)",
+#                "logging.getLogger('FFC').setLevel(logging.ERROR)"
+#                "import cloud",
+#                "logging.getLogger('Cloud').setLevel(logging.ERROR)"
+#                ]))
+#        dill_init_file.close()
         sftp.close()
 
     def create_s3_config(self):
