@@ -1288,7 +1288,7 @@ class MOLNSExec(MOLNSbase):
         sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
         sshdeploy.deploy_remote_execution_job(inst.ip_address, job.jobID, exec_str)
         #
-        return {'id':job.id, 'msg':"Job started, ID={1}  JobID={0}".format(job.jobID,job.id)}
+        return {'JobID':job.jobID, 'id':job.id, 'msg':"Job started, ID={1}  JobID={0}".format(job.jobID,job.id)}
 
     @classmethod
     def job_status(cls, args, config):
