@@ -192,6 +192,7 @@ class OpenStackProvider(OpenStackBase):
         creds['api_key'] = self.config['nova_password']
         creds['auth_url'] = self.config['nova_auth_url']
         creds['project_id'] = self.config['nova_project_id']
+        #creds['region_name'] = "regionOne"
         self.nova = novaclient.Client(self.config['nova_version'], **creds)
         self.connected = True
 
