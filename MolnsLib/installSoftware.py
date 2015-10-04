@@ -56,7 +56,9 @@ class InstallSW:
                     
         [
          "sudo rm -rf /usr/local/molnsutil;sudo mkdir -p /usr/local/molnsutil;sudo chown ubuntu /usr/local/molnsutil",
-         "cd /usr/local/ && git clone https://github.com/Molns/molnsutil.git",
+         #"cd /usr/local/ && git clone https://github.com/Molns/molnsutil.git",
+         "cd /usr/local/ && git clone https://github.com/briandrawert/molnsutil.git",
+         "cd /usr/local/molnsutil && git checkout molnsutil_state",
          "cd /usr/local/molnsutil && sudo python setup.py install"
         ],
 
