@@ -489,7 +489,7 @@ class SSHDeploy:
             print "StochSS launch failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
             raise sys.exc_info()[1], None, sys.exc_info()[2]
 
-    def deploy_ipython_controller(self, ip_address, notebook_password=None):
+    def deploy_ipython_controller(self, ip_address, notebook_password=None, reserved_cpus=2):
         controller_hostname =  ''
         engine_file_data = ''
         try:
@@ -522,7 +522,7 @@ class SSHDeploy:
             self.exec_command("source /usr/local/pyurdme/pyurdme_init; screen -d -m ipcontroller --profile={1} --ip='*' --location={0} --port={2} --log-to-file".format(ip_address, self.profile, self.ipython_port), '\n')
             # Start one ipengine per processor
             num_procs = self.get_number_processors()
-            num_engines = num_procs - 2
+            num_engines = num_procs - reserved_cpus
             for _ in range(num_engines):
                 self.exec_command("{1}source /usr/local/pyurdme/pyurdme_init; screen -d -m ipengine --profile={0} --debug".format(self.profile, self.ipengine_env))
             self.exec_command("{1}source /usr/local/pyurdme/pyurdme_init; screen -d -m ipython notebook --profile={0}".format(self.profile, self.ipengine_env))
