@@ -281,6 +281,7 @@ class SSHDeploy:
         raise SSHDeployException("ssh connect Failed!!!\t{0}:{1}".format(hostname,self.ssh_endpoint))
 
     def deploy_molns_webserver(self, ip_address, openWebBrowser=True):
+        logging.debug('deploy_molns_webserver(ip_address={0}, openWebBrowser={1})'.format(ip_address, openWebBrowser))
         try:
             self.connect(ip_address, self.ssh_endpoint)
             self.exec_command("sudo rm -rf /usr/local/molns_webroot")
@@ -490,6 +491,7 @@ class SSHDeploy:
             raise sys.exc_info()[1], None, sys.exc_info()[2]
 
     def deploy_ipython_controller(self, ip_address, notebook_password=None, reserved_cpus=2):
+        logging.debug('deploy_ipython_controller(ip_address={0}, reserved_cpus={1})'.format(ip_address, reserved_cpus))
         controller_hostname =  ''
         engine_file_data = ''
         try:
@@ -520,9 +522,14 @@ class SSHDeploy:
             self.create_ipython_config(ip_address, notebook_password)
             self.create_engine_config()
             self.exec_command("source /usr/local/pyurdme/pyurdme_init; screen -d -m ipcontroller --profile={1} --ip='*' --location={0} --port={2} --log-to-file".format(ip_address, self.profile, self.ipython_port), '\n')
+            # Give the controller time to startup
+            import time
+            logging.debug('Waiting 5 seconds for the IPython controller to start.')
+            time.sleep(5)
             # Start one ipengine per processor
             num_procs = self.get_number_processors()
             num_engines = num_procs - reserved_cpus
+            logging.debug('Starting {0} engines (#cpu={1}, reserved_cpus={2})'.format(num_engines, num_procs, reserved_cpus))
             for _ in range(num_engines):
                 self.exec_command("{1}source /usr/local/pyurdme/pyurdme_init; screen -d -m ipengine --profile={0} --debug".format(self.profile, self.ipengine_env))
             self.exec_command("{1}source /usr/local/pyurdme/pyurdme_init; screen -d -m ipython notebook --profile={0}".format(self.profile, self.ipengine_env))
