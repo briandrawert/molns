@@ -346,6 +346,26 @@ class MOLNSController(MOLNSbase):
         
 
     @classmethod
+    def is_controller_running(cls, args, config):
+        logging.debug("MOLNSController.is_controller_running(args={0})".format(args))
+        if len(args) > 0:
+            try:
+                controller_obj = cls._get_controllerobj(args, config)
+            except MOLNSException:
+                return {}
+            if controller_obj is None: return False
+            # Check if any instances are assigned to this controller
+            instance_list = config.get_controller_instances(controller_id=controller_obj.id)
+            if len(instance_list) > 0:
+                for i in instance_list:
+                    status = controller_obj.get_instance_status(i)
+                    if status == controller_obj.get_instance_status.STATUS_RUNNING:
+                        return True
+
+            return False
+        
+
+    @classmethod
     def status_controller(cls, args, config):
         """ Get status of the head node of a MOLNs controller. """
         logging.debug("MOLNSController.status_controller(args={0})".format(args))
@@ -1312,6 +1332,8 @@ class MOLNSExec(MOLNSbase):
                 "\tReturn the output (stdout/stderr) of the process (starting from 'seek').")
         j = config.get_job(jobID=args[0])
         ip, controller_obj = cls._get_ip_for_job(j, config)
+        if ip is None:
+            return {'msg': 'WARNING: controller is not running'}
         seek = 0
         if len(args) > 1:
             try:
