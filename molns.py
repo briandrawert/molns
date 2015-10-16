@@ -281,8 +281,7 @@ class MOLNSController(MOLNSbase):
                 if status == controller_obj.STATUS_RUNNING:
                     ip = i.ip_address
         if ip is None:
-            print "No active instance for this controller"
-            return
+            raise MOLNSException("No active instance for this controller")
         #print " ".join(['/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip)])
         #os.execl('/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip))
         cmd = ['/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip)]
@@ -308,8 +307,7 @@ class MOLNSController(MOLNSbase):
                 if status == controller_obj.STATUS_RUNNING:
                     ip = i.ip_address
         if ip is None:
-            print "No active instance for this controller"
-            return
+            raise MOLNSException("No active instance for this controller")
         #print " ".join(['/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip)])
         #os.execl('/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip))
         cmd = ['/usr/bin/scp','-r','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(), args[1], 'ubuntu@{0}:/home/ubuntu/'.format(ip)]
@@ -335,8 +333,7 @@ class MOLNSController(MOLNSbase):
                 if status == controller_obj.STATUS_RUNNING:
                     ip = i.ip_address
         if ip is None:
-            print "No active instance for this controller"
-            return
+            raise MOLNSException("No active instance for this controller")
         #print " ".join(['/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip)])
         #os.execl('/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip))
         cmd = ['/usr/bin/scp','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(), args[1], 'ubuntu@{0}:/home/ubuntu/shared'.format(ip)]
@@ -1333,7 +1330,7 @@ class MOLNSExec(MOLNSbase):
         j = config.get_job(jobID=args[0])
         ip, controller_obj = cls._get_ip_for_job(j, config)
         if ip is None:
-            return {'msg': 'WARNING: controller is not running'}
+            raise MOLNSException("No active instance for this controller")
         seek = 0
         if len(args) > 1:
             try:
@@ -1354,10 +1351,10 @@ class MOLNSExec(MOLNSbase):
         filename = args[1]
         j = config.get_job(jobID=args[0])
         if j is None:
-            return {'msg':"Job not found"}
+            raise MOLNSException("Job not found")
         ip, controller_obj = cls._get_ip_for_job(j, config)
         if ip is None:
-            return {'msg': "No active instance for this controller"}
+            raise MOLNSException("No active instance for this controller")
         sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
         if os.path.isfile(filename) and not overwrite and (len(args) < 3 or args[-1] != '--force'):
             raise MOLNSException("File {0} exists, use '--force' or overwrite=True to ignore.")
@@ -1380,7 +1377,7 @@ class MOLNSExec(MOLNSbase):
             return {'msg':"Job not found"}
         ip, controller_obj = cls._get_ip_for_job(j, config)
         if ip is None:
-            return {'msg': "No active instance for this controller"}
+            raise MOLNSException("No active instance for this controller")
         sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
         sshdeploy.remote_execution_delete_job(ip, j.jobID)
         config.delete_job(j)

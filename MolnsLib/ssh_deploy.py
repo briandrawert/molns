@@ -419,6 +419,12 @@ class SSHDeploy:
         base_path = "{0}/{1}".format(self.REMOTE_EXEC_JOB_PATH,jobID)
         try:
             self.connect(ip_address, self.ssh_endpoint)
+            ### If process is still running, terminate it
+            try:
+                self.exec_command("kill -TERM `cat {0}/.molns/pid` > /dev/null 2&>1".format(base_path))
+            except Exception as e:
+                pass
+            ### Remove the filess on the remote server
             self.exec_command("rm -rf {0}/* {0}/.molns*".format(base_path))
             self.exec_command("sudo rmdir {0}".format(base_path))
             self.ssh.close()
