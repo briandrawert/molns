@@ -44,7 +44,7 @@ class OpenStackProvider(OpenStackBase):
     ('neutron_nic',
         {'q':'Network ID (leave empty if only one possible network)', 'default':None, 'ask':True}),    
     ('region_name',
-        {'q':'Specify the region to use', 'default':os.environ.get('OS_REGION_NAME'), 'ask':True}),    
+        {'q':'Specify the region (leave empty if only one region)', 'default':os.environ.get('OS_REGION_NAME'), 'ask':True}),    
     ('floating_ip_pool',
         {'q':'Name of Floating IP Pool (leave empty if only one possible pool)', 'default':None, 'ask':True}),
     ('nova_version',
