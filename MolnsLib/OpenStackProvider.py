@@ -355,7 +355,7 @@ class OpenStackProvider(OpenStackBase):
         logging.info("Attaching floating ip to the server...")
         try:
             try:
-                floating_ip = [ip for ip in nc.floating_ips.list() if ip.instance_id == None ].pop()
+                floating_ip = [ip for ip in self.nova.floating_ips.list() if ip.instance_id == None ].pop()
             except Exception:
                 logging.info("No floating ip for reuse available, allocating a new one")
                 pass
