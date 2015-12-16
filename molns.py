@@ -11,9 +11,6 @@ import multiprocessing
 import json
 
 import logging
-logger = logging.getLogger()
-#logger.setLevel(logging.INFO)  #for Debugging
-logger.setLevel(logging.CRITICAL)
 ###############################################
 class MOLNSException(Exception):
     pass
@@ -242,7 +239,11 @@ class MOLNSController(MOLNSbase):
         else:
             table_data = []
             for c in controllers:
-                provider_name = config.get_object_by_id(c.provider_id, 'Provider').name
+                try:
+                    p = config.get_object_by_id(c.provider_id, 'Provider')
+                    provider_name = p.name
+                except DatastoreException as e:
+                    provider_name = 'ERROR: {0}'.format(e)
                 table_data.append([c.name, provider_name])
             return {'type':'table','column_names':['name', 'provider'], 'data':table_data}
     
@@ -355,7 +356,12 @@ class MOLNSController(MOLNSbase):
             table_data = []
             if len(instance_list) > 0:
                 for i in instance_list:
-                    provider_name = config.get_object_by_id(i.provider_id, 'Provider').name
+                    #provider_name = config.get_object_by_id(i.provider_id, 'Provider').name
+                    try:
+                        p = config.get_object_by_id(i.provider_id, 'Provider')
+                        provider_name = p.name
+                    except DatastoreException as e:
+                        provider_name = 'ERROR: {0}'.format(e)
                     controller_name = config.get_object_by_id(i.controller_id, 'Controller').name
                     status = controller_obj.get_instance_status(i)
                     table_data.append([controller_name, status, 'controller', provider_name, i.provider_instance_identifier, i.ip_address])
@@ -368,10 +374,17 @@ class MOLNSController(MOLNSbase):
                 for i in instance_list:
                     worker_name = config.get_object_by_id(i.worker_group_id, 'WorkerGroup').name
                     worker_obj = cls._get_workerobj([worker_name], config)
-                    provider_name = config.get_object_by_id(i.provider_id, 'Provider').name
+                    #provider_name = config.get_object_by_id(i.provider_id, 'Provider').name
+                    try:
+                        p = config.get_object_by_id(i.provider_id, 'Provider')
+                        provider_name = p.name
+                    except DatastoreException as e:
+                        provider_name = 'ERROR: {0}'.format(e)
                     status = worker_obj.get_instance_status(i)
                     table_data.append([worker_name, status, 'worker', provider_name, i.provider_instance_identifier, i.ip_address])
-            table_print(['name','status','type','provider','instance id', 'IP address'],table_data)
+            #table_print(['name','status','type','provider','instance id', 'IP address'],table_data)
+            r = {'type':'table', 'column_names':['name','status','type','provider','instance id', 'IP address'], 'data':table_data}
+            return r
         else:
             instance_list = config.get_all_instances()
             if len(instance_list) > 0:
@@ -691,8 +704,17 @@ class MOLNSWorkerGroup(MOLNSbase):
         else:
             table_data = []
             for g in groups:
-                provider_name = config.get_object_by_id(g.provider_id, 'Provider').name
-                controller_name = config.get_object_by_id(g.controller_id, 'Controller').name
+                #provider_name = config.get_object_by_id(g.provider_id, 'Provider').name
+                try:
+                    p = config.get_object_by_id(g.provider_id, 'Provider')
+                    provider_name = p.name
+                except DatastoreException as e:
+                    provider_name = 'ERROR: {0}'.format(e)
+                try:
+                    c = config.get_object_by_id(g.controller_id, 'Controller')
+                    controller_name = c.name
+                except DatastoreException as e:
+                    controller_name = 'ERROR: {0}'.format(e)
                 table_data.append([g.name, provider_name, controller_name])
             return {'type':'table','column_names':['name', 'provider', 'controller'], 'data':table_data}
 
@@ -1138,7 +1160,9 @@ class MOLNSProvider(MOLNSbase):
             table_data = []
             for p in providers:
                 table_data.append([p.name, p.type])
-            table_print(['name', 'type'], table_data)
+            #table_print(['name', 'type'], table_data)
+            r = {'type':'table', 'column_names':['name', 'type'],'data':table_data}
+            return r
 
     @classmethod
     def show_provider(cls, args, config):
@@ -1486,4 +1510,7 @@ def parseArgs():
 
 
 if __name__ == "__main__":
+    logger = logging.getLogger()
+    #logger.setLevel(logging.INFO)  #for Debugging
+    logger.setLevel(logging.CRITICAL)
     parseArgs()
