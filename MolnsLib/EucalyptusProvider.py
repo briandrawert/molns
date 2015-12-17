@@ -158,11 +158,14 @@ class EucalyptusProvider(EucalyptusBase):
         try:
             logging.debug("installing software on server (ip={0})".format(ip))
             install_vm_instance = installSoftware.InstallSW(ip, config=self)
-            #install_vm_instance.run_with_logging()
-            #logging.debug("Shutting down instance")
-            #self.eucalyptus.stop_eucalyptus_instances([instance])
+            install_vm_instance.run_with_logging()
+            logging.debug("Shutting down instance")
+            self.eucalyptus.stop_eucalyptus_instances([instance])
             logging.debug("Creating image")
-            image_id = instance.create_image(name=self._get_image_name())
+            # Original Method, instances.create_
+            #image_id = instance.create_image(name=self._get_image_name())
+            # New Method, conn.create_
+            image_id = self.eucalyptus.conn.create_image(instance.id, name=self._get_image_name(), description='Molns created Eucalyptus image')
             #logging.debug("Finding volume of instance")
             #vol = None
             #for v in self.eucalyptus.conn.get_all_volumes():
