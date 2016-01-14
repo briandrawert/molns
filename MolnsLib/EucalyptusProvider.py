@@ -145,7 +145,7 @@ class EucalyptusProvider(EucalyptusBase):
         """ Create the molns image is created. """
         self._connect()
         # clear the network-related persisent udev rules:
-        #echo "" > /etc/udev/rules.d/70-persistent-net.rules 
+        #echo "" > /etc/udev/rules.d/70-persistent-net.rules
         #echo "" > /lib/udev/rules.d/75-persistent-net-generator.rules
         #
         
@@ -159,26 +159,34 @@ class EucalyptusProvider(EucalyptusBase):
             logging.debug("installing software on server (ip={0})".format(ip))
             install_vm_instance = installSoftware.InstallSW(ip, config=self)
             install_vm_instance.run_with_logging()
+            logging.debug("Removing persistent udev rules on server (ip={0})".format(ip))
+            install_vm_instance.remove_persisent_udev_rules()
             logging.debug("Shutting down instance")
             self.eucalyptus.stop_eucalyptus_instances([instance])
-            logging.debug("Creating image")
+            l#ogging.debug("Creating image")
             # Original Method, instances.create_
             #image_id = instance.create_image(name=self._get_image_name())
             # New Method, conn.create_
-            image_id = self.eucalyptus.conn.create_image(instance.id, name=self._get_image_name(), description='Molns created Eucalyptus image')
-            #logging.debug("Finding volume of instance")
-            #vol = None
-            #for v in self.eucalyptus.conn.get_all_volumes():
-            #    if v.attach_data is not None and v.attach_data.instance_id == instance.id:
-            #        vol = v
-            #        break
-            #if vol is None:
-            #    raise Exception("Can not find volume associated with instance.  Base image must be an EBS backed image.")
-            #snap = vol.create_snapshot()
-            #logging.debug('Snapshot {0} of volume {1}'.format(snap.id, vol.id))
+            #image_id = self.eucalyptus.conn.create_image(instance.id, name=self._get_image_name(), description='Molns created Eucalyptus image')
+            logging.debug("Finding volume of instance")
+            vol = None
+            for v in self.eucalyptus.conn.get_all_volumes():
+                if v.attach_data is not None and v.attach_data.instance_id == instance.id:
+                    vol = v
+                    break
+            if vol is None:
+                raise Exception("Can not find volume associated with instance.  Base image must be an EBS backed image.")
+            snap = vol.create_snapshot()
+            logging.debug('Snapshot {0} of volume {1}'.format(snap.id, vol.id))
+            while snap.state == u'pending':
+                logging.debug('\tSnapshot {0}.state {1}'.format(snap.id, snap.state))
+                time.sleep(10)
+                snap.update()
+            logging.debug('\tSnapshot {0}.state {1}'.format(snap.id, snap.state))
+            
             #image_id = self.eucalyptus.conn.register_image(name=self._get_image_name(), snapshot_id=snap.id, delete_root_volume_on_termination=True)
             ##deleteOnTermination
-            #image_id = self.eucalyptus.conn.register_image(name=self._get_image_name(), snapshot_id=snap.id)
+            image_id = self.eucalyptus.conn.register_image(name=self._get_image_name(), snapshot_id=snap.id)
             logging.debug("Image created: {0}".format(image_id))
         except Exception as e:
             logging.exception(e)
@@ -476,6 +484,7 @@ class CreateVM:
             group_list.append(group_name)
     
         print "Starting {0} Eucalyptus instance(s). This will take a minute...".format(num)
+        logging.debug('starting image_id={image_id} , key_name={key_name}, security_groups={security_groups}, instance_type={instance_type}'.format(image_id=image_id, key_name=key_name, security_groups=group_list, instance_type=instance_type))
         reservation = self.conn.run_instances(self.image_id, min_count=num, max_count=num, key_name=key_name, security_groups=group_list, instance_type=instance_type)
 
         instances = reservation.instances
@@ -513,7 +522,11 @@ class CreateVM:
                 time.sleep(self.PENDING_IMAGE_WAITTIME)
                 img.update()
         print "Starting {0} Eucalyptus instance(s). This will take a minute...".format(num)
-        reservation = self.conn.run_instances(image_id, min_count=num, max_count=num, key_name=key_name, security_groups=[group_name], instance_type=instance_type)
+        print 'starting image_id={image_id} , key_name={key_name}, security_groups={security_groups}, instance_type={instance_type}'.format(image_id=image_id, key_name=key_name, security_groups=group_name, instance_type=instance_type)
+        logging.debug('starting image_id={image_id} , key_name={key_name}, security_groups={security_groups}, instance_type={instance_type}'.format(image_id=image_id, key_name=key_name, security_groups=group_name, instance_type=instance_type))
+
+        reservation = self.conn.run_instances(image_id, min_count=num, max_count=num, key_name=key_name, security_groups=[group_name], instance_type=instance_type, user_data='/bin/rm -f /etc/udev/rules.d/70-persistent-net.rules')
+        #user_data='/bin/rm -f /etc/udev/rules.d/70-persistent-net.rules',
         instances = reservation.instances
         num_instance = len(instances) 
         num_running = 0
@@ -527,7 +540,7 @@ class CreateVM:
                 if instance.state == 'terminated':
                     num_terminated += 1
                 if num_terminated == num_instance:
-                    raise ProviderException("Error starting Eucalyptus instances(s)")
+                    raise ProviderException("Error starting Eucalyptus instances(s)  num_terminated={0} num_instance={1}".format(num_terminated, num_instance))
                 if num_running < num_instance: 
                     time.sleep(5)
         print "Eucalyptus instances started."

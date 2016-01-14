@@ -332,6 +332,21 @@ class InstallSW:
             print "FAILED......\t{0}:{1}\t{2}\t{3}".format(self.hostname, self.ssh_endpoint, command, e)
             raise InstallSWException()
 
+    def remove_persisent_udev_rules(self):
+        try:
+            command1 = "sudo /bin/rm -f /etc/udev/rules.d/70-persistent-net.rules"
+            command2 = "sudo /bin/rm -f /lib/udev/rules.d/75-persistent-net-generator.rules"
+            print "EXECUTING...\t{0}".format(command1)
+            self.exec_command(command1, verbose=True)
+            print "EXECUTING...\t{0}".format(command2)
+            self.exec_command(command2, verbose=True)
+        except paramiko.SSHException as e:
+            if verbose:
+                print "FAILED......\t{0}".format(e)
+            raise InstallSWException()
+
+
+
 if __name__ == "__main__":
     print "{0}".format(InstallSW.command_list)
     print "len={0}".format(len(InstallSW.command_list))
