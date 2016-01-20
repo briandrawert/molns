@@ -128,6 +128,22 @@ class InstallSW:
         "sudo pip install jsonschema jsonpointer",  #redo this install to be sure it has not been removed.
 
         
+
+        ## Install StochSS and GillesPy
+        [
+        "sudo apt-get -y install nginx",
+        "sudo update-rc.d -f nginx disable",
+        "sudo mkdir -p /usr/local/stochss/",
+        "sudo chown ubuntu /usr/local/stochss/",
+        "cd /usr/local/ && git clone --recursive https://github.com/StochSS/stochss.git",
+        "cp /usr/local/stochss/run.ubuntu.sh /usr/local/stochss/install.ubuntu.sh",
+        "sed -i '\|launchapp|d' /usr/local/stochss/install.ubuntu.sh",
+        "cd /usr/local/stochss/ && echo 'y' | ./run.ubuntu.sh --install",
+        "sudo STOCHSS_HOME=/usr/local/stochss/ pip install https://github.com/briandrawert/GillesPy/tarball/master/",
+        "python -c 'import gillespy'"
+        ],
+
+                    
         "sync",  # This is critial for some infrastructures.
     ]
     
