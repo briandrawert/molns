@@ -133,6 +133,8 @@ class InstallSW:
         [
         "sudo apt-get -y install nginx",
         "sudo update-rc.d -f nginx disable",
+        "sudo pip install python-libsbml",
+        "sudo apt-get install python-mysql.connector",
         "sudo mkdir -p /usr/local/stochss/",
         "sudo chown ubuntu /usr/local/stochss/",
         "cd /usr/local/ && git clone --recursive https://github.com/StochSS/stochss.git",
