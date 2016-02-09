@@ -9,6 +9,7 @@ import time
 import uuid
 import webbrowser
 import urllib2
+import ssl
 
 class SSHDeployException(Exception):
     pass
@@ -342,10 +343,14 @@ class SSHDeploy:
             print "Starting StochSS"
             self.exec_command("cd /usr/local/stochss/ && screen -d -m ./run.ubuntu.sh")
             print "Waiting for StochSS to become available:"
-            stochss_url = "https://{0}/".format(ip_address)
+            stochss_url = "https://{0}:{1}/".format(ip_address,port)
+
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
             while True:
                 try:
-                    req = urllib2.urlopen(stochss_url)
+                    req = urllib2.urlopen(stochss_url, context=ctx)
                     break
                 except Exception as e:
                     #sys.stdout.write("{0}".format(e))
