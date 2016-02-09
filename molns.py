@@ -11,9 +11,6 @@ import multiprocessing
 import json
 
 import logging
-logger = logging.getLogger()
-#logger.setLevel(logging.INFO)  #for Debugging
-logger.setLevel(logging.CRITICAL)
 ###############################################
 class MOLNSException(Exception):
     pass
@@ -28,6 +25,28 @@ class MOLNSConfig(Datastore):
 
 ###############################################
 class MOLNSbase():
+    @classmethod
+    def merge_config(self, obj, config):
+        for key, conf, value in obj.get_config_vars():
+            if key not in config:
+                if value is not None:
+                    myval = value
+                else:
+                    if 'default' in conf and conf['default']:
+                        if callable(conf['default']):
+                            f1 = conf['default']
+                            try:
+                                myval = f1(obj)
+                            except TypeError:
+                                myval = None
+                        else:
+                            myval = conf['default']
+                    else:
+                        myval = None
+                obj.config[key] = myval
+            else:
+                obj.config[key] = config[key]
+
     @classmethod
     def _get_workerobj(cls, args, config):
         # Name
@@ -113,7 +132,7 @@ class MOLNSController(MOLNSbase):
         except DatastoreException as e:
             controller_obj = config.create_object(ptype=provider_obj.type, name=controller_name, kind='Controller', provider_id=provider_obj.id)
             msg += "Creating new controller\n"
-        controller_obj.config = data['config']
+        cls.merge_config(controller_obj, data['config'])
         config.save_object(controller_obj, kind='Controller')
         msg += "Controller data imported\n"
         return {'msg':msg}
@@ -133,21 +152,25 @@ class MOLNSController(MOLNSbase):
             raise MOLNSException("no config specified")
         if name is None and provider_type is None:
             raise MOLNSException("Controller name or provider type must be specified")
-        if name is None:
+        obj = None
+        if obj is None and name is not None:
+            try:
+                obj = config.get_object(name, kind='Controller')
+            except DatastoreException as e:
+                pass
+        if obj is None and provider_type is not None:
             if provider_type not in VALID_PROVIDER_TYPES:
                 raise MOLNSException("Unknown provider type '{0}'".format(provider_type))
             p_hand = get_provider_handle('Controller',provider_type)
             obj = p_hand('__tmp__',data={},config_dir=config.config_dir)
-        else:
-            try:
-                obj = config.get_object(name, kind='Controller')
-            except DatastoreException as e:
-                raise MOLNSException("Controller {0} not found".format(name))
+        if obj is None:
+            raise MOLNSException("Controller {0} not found".format(name))
 
         ret = []
         for key, conf, value in obj.get_config_vars():
             if 'ask' in conf and not conf['ask']:
                 continue
+            question = conf['q']
             if value is not None:
                 myval = value
             else:
@@ -165,6 +188,7 @@ class MOLNSController(MOLNSbase):
             if myval is not None and 'obfuscate' in conf and conf['obfuscate']:
                 myval = '********'
             ret.append({
+                'question':question,
                 'key':key,
                 'value': myval,
                 'type':'string'
@@ -215,7 +239,11 @@ class MOLNSController(MOLNSbase):
         else:
             table_data = []
             for c in controllers:
-                provider_name = config.get_object_by_id(c.provider_id, 'Provider').name
+                try:
+                    p = config.get_object_by_id(c.provider_id, 'Provider')
+                    provider_name = p.name
+                except DatastoreException as e:
+                    provider_name = 'ERROR: {0}'.format(e)
                 table_data.append([c.name, provider_name])
             return {'type':'table','column_names':['name', 'provider'], 'data':table_data}
     
@@ -328,7 +356,12 @@ class MOLNSController(MOLNSbase):
             table_data = []
             if len(instance_list) > 0:
                 for i in instance_list:
-                    provider_name = config.get_object_by_id(i.provider_id, 'Provider').name
+                    #provider_name = config.get_object_by_id(i.provider_id, 'Provider').name
+                    try:
+                        p = config.get_object_by_id(i.provider_id, 'Provider')
+                        provider_name = p.name
+                    except DatastoreException as e:
+                        provider_name = 'ERROR: {0}'.format(e)
                     controller_name = config.get_object_by_id(i.controller_id, 'Controller').name
                     status = controller_obj.get_instance_status(i)
                     table_data.append([controller_name, status, 'controller', provider_name, i.provider_instance_identifier, i.ip_address])
@@ -341,10 +374,17 @@ class MOLNSController(MOLNSbase):
                 for i in instance_list:
                     worker_name = config.get_object_by_id(i.worker_group_id, 'WorkerGroup').name
                     worker_obj = cls._get_workerobj([worker_name], config)
-                    provider_name = config.get_object_by_id(i.provider_id, 'Provider').name
+                    #provider_name = config.get_object_by_id(i.provider_id, 'Provider').name
+                    try:
+                        p = config.get_object_by_id(i.provider_id, 'Provider')
+                        provider_name = p.name
+                    except DatastoreException as e:
+                        provider_name = 'ERROR: {0}'.format(e)
                     status = worker_obj.get_instance_status(i)
                     table_data.append([worker_name, status, 'worker', provider_name, i.provider_instance_identifier, i.ip_address])
-            table_print(['name','status','type','provider','instance id', 'IP address'],table_data)
+            #table_print(['name','status','type','provider','instance id', 'IP address'],table_data)
+            r = {'type':'table', 'column_names':['name','status','type','provider','instance id', 'IP address'], 'data':table_data}
+            return r
         else:
             instance_list = config.get_all_instances()
             if len(instance_list) > 0:
@@ -366,7 +406,7 @@ class MOLNSController(MOLNSbase):
 
 
     @classmethod
-    def start_controller(cls, args, config):
+    def start_controller(cls, args, config, password=None):
         """ Start the MOLNs controller. """
         logging.debug("MOLNSController.start_controller(args={0})".format(args))
         controller_obj = cls._get_controllerobj(args, config)
@@ -392,9 +432,9 @@ class MOLNSController(MOLNSbase):
             inst = controller_obj.start_instance()
         # deploying
         sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
-        sshdeploy.deploy_ipython_controller(inst.ip_address)
+        sshdeploy.deploy_ipython_controller(inst.ip_address, notebook_password=password)
         sshdeploy.deploy_molns_webserver(inst.ip_address)
-        #sshdeploy.deploy_stochss(inst.ip_address, port=443)
+        sshdeploy.deploy_stochss(inst.ip_address)
 
     @classmethod
     def stop_controller(cls, args, config):
@@ -548,7 +588,7 @@ class MOLNSWorkerGroup(MOLNSbase):
         except DatastoreException as e:
             worker_obj = config.create_object(ptype=provider_obj.type, name=worker_name, kind='WorkerGroup', provider_id=provider_obj.id, controller_id=controller_obj.id)
             msg += "Creating new worker group\n"
-        worker_obj.config = data['config']
+        cls.merge_config(worker_obj, data['config'])
         config.save_object(worker_obj, kind='WorkerGroup')
         msg += "Worker group data imported\n"
         return {'msg':msg}
@@ -568,20 +608,24 @@ class MOLNSWorkerGroup(MOLNSbase):
             raise MOLNSException("no config specified")
         if name is None and provider_type is None:
             raise MOLNSException("'name' or 'provider_type' must be specified.")
-        if name is None:
+        obj = None
+        if obj is None and name is not None:
+            try:
+                obj = config.get_object(name, kind='WorkerGroup')
+            except DatastoreException as e:
+                pass
+        if obj is None and provider_type is not None:
             if provider_type not in VALID_PROVIDER_TYPES:
                 raise MOLNSException("Unknown provider type '{0}'".format(provider_type))
             p_hand = get_provider_handle('WorkerGroup',provider_type)
             obj = p_hand('__tmp__',data={},config_dir=config.config_dir)
-        else:
-            try:
-                obj = config.get_object(name, kind='WorkerGroup')
-            except DatastoreException as e:
-                raise MOLNSException("Worker group {0} not found".format(name))
+        if obj is None:
+            raise MOLNSException("Worker group {0} not found".format(name))
         ret = []
         for key, conf, value in obj.get_config_vars():
             if 'ask' in conf and not conf['ask']:
                 continue
+            question = conf['q']
             if value is not None:
                 myval = value
             else:
@@ -599,6 +643,7 @@ class MOLNSWorkerGroup(MOLNSbase):
             if myval is not None and 'obfuscate' in conf and conf['obfuscate']:
                 myval = '********'
             ret.append({
+                'question':question,
                 'key':key,
                 'value': myval,
                 'type':'string'
@@ -659,8 +704,17 @@ class MOLNSWorkerGroup(MOLNSbase):
         else:
             table_data = []
             for g in groups:
-                provider_name = config.get_object_by_id(g.provider_id, 'Provider').name
-                controller_name = config.get_object_by_id(g.controller_id, 'Controller').name
+                #provider_name = config.get_object_by_id(g.provider_id, 'Provider').name
+                try:
+                    p = config.get_object_by_id(g.provider_id, 'Provider')
+                    provider_name = p.name
+                except DatastoreException as e:
+                    provider_name = 'ERROR: {0}'.format(e)
+                try:
+                    c = config.get_object_by_id(g.controller_id, 'Controller')
+                    controller_name = c.name
+                except DatastoreException as e:
+                    controller_name = 'ERROR: {0}'.format(e)
                 table_data.append([g.name, provider_name, controller_name])
             return {'type':'table','column_names':['name', 'provider', 'controller'], 'data':table_data}
 
@@ -878,7 +932,7 @@ class MOLNSWorkerGroup(MOLNSbase):
 
 ###############################################
 
-class MOLNSProvider():
+class MOLNSProvider(MOLNSbase):
     @classmethod
     def provider_export(cls, args, config):
         """ Export the configuration of a provider. """
@@ -926,11 +980,12 @@ class MOLNSProvider():
         except DatastoreException as e:
             provider_obj = config.create_object(name=provider_name, ptype=data['type'], kind='Provider')
             msg += "Creating new provider\n"
-        provider_obj.config = data['config']
+        cls.merge_config(provider_obj, data['config'])
         config.save_object(provider_obj, kind='Provider')
         msg += "Provider data imported\n"
         return {'msg':msg}
-        
+
+
     @classmethod
     def provider_get_config(cls, name=None, provider_type=None, config=None):
         """ Return a list of dict of config var for the provider config.
@@ -946,20 +1001,24 @@ class MOLNSProvider():
             raise MOLNSException("no config specified")
         if name is None and provider_type is None:
             raise MOLNSException("provider name or type must be specified")
-        if name is None:
+        obj = None
+        if obj is None and name is not None:
+            try:
+                obj = config.get_object(name, kind='Provider')
+            except DatastoreException as e:
+                pass
+        if obj is None and provider_type is not None:
             if provider_type not in VALID_PROVIDER_TYPES:
                 raise MOLNSException("unknown provider type '{0}'".format(provider_type))
             p_hand = get_provider_handle('Provider',provider_type)
             obj = p_hand('__tmp__',data={},config_dir=config.config_dir)
-        else:
-            try:
-                obj = config.get_object(name, kind='Provider')
-            except DatastoreException as e:
-                raise MOLNSException("provider {0} not found".format(name))
+        if obj is None:
+            raise MOLNSException("provider {0} not found".format(name))
         ret = []
         for key, conf, value in obj.get_config_vars():
             if 'ask' in conf and not conf['ask']:
                 continue
+            question = conf['q']
             if value is not None:
                 myval = value
             else:
@@ -977,6 +1036,7 @@ class MOLNSProvider():
             if myval is not None and 'obfuscate' in conf and conf['obfuscate']:
                 myval = '********'
             ret.append({
+                'question':question,
                 'key':key,
                 'value': myval,
                 'type':'string'
@@ -1100,7 +1160,9 @@ class MOLNSProvider():
             table_data = []
             for p in providers:
                 table_data.append([p.name, p.type])
-            table_print(['name', 'type'], table_data)
+            #table_print(['name', 'type'], table_data)
+            r = {'type':'table', 'column_names':['name', 'type'],'data':table_data}
+            return r
 
     @classmethod
     def show_provider(cls, args, config):
@@ -1121,7 +1183,7 @@ class MOLNSProvider():
         config.delete_object(name=args[0], kind='Provider')
 ###############################################
 
-class MOLNSInstances():
+class MOLNSInstances(MOLNSbase):
     @classmethod
     def show_instances(cls, args, config):
         """ List all instances in the db """
@@ -1447,4 +1509,7 @@ def parseArgs():
 
 
 if __name__ == "__main__":
+    logger = logging.getLogger()
+    #logger.setLevel(logging.INFO)  #for Debugging
+    logger.setLevel(logging.CRITICAL)
     parseArgs()
