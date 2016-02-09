@@ -56,8 +56,10 @@ class InstallSW:
                     
         [
          "sudo rm -rf /usr/local/molnsutil;sudo mkdir -p /usr/local/molnsutil;sudo chown ubuntu /usr/local/molnsutil",
-         "cd /usr/local/ && git clone https://github.com/Molns/molnsutil.git",
-         "cd /usr/local/molnsutil && sudo python setup.py install"
+         #"cd /usr/local/ && git clone https://github.com/Molns/molnsutil.git",
+         "cd /usr/local/ && git clone https://github.com/briandrawert/molnsutil.git",
+         "cd /usr/local/molnsutil/ && git checkout molnsutil_state",
+         "sudo pip install /usr/local/molnsutil",
         ],
 
         # So the workers can mount the controller via SSHfs
@@ -112,7 +114,7 @@ class InstallSW:
             "cd /usr/local/ && git clone https://github.com/MOLNs/pyurdme.git",
             #"cd /usr/local/pyurdme && git checkout develop",  # for development only
             "cp /usr/local/pyurdme/pyurdme/data/three.js_templates/js/* .ipython/profile_default/static/custom/",
-            "source /usr/local/pyurdme/pyurdme_init && python -c 'import pyurdme'",
+            #"source /usr/local/pyurdme/pyurdme_init && python -c 'import pyurdme'",
         ],
          
         # example notebooks
