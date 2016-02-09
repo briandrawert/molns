@@ -329,7 +329,6 @@ class SSHDeploy:
                 buff = string.replace(buff, '###LISTEN_PORT###', str(port))
                 buff = string.replace(buff, '###SSL_CERT###', str(ssl_cert))
                 buff = string.replace(buff, '###SSL_CERT_KEY###', str(ssl_key))
-                print buff
                 web_file.write(buff)
                 web_file.close()
             self.exec_command("sudo chown root /tmp/nginx.conf")
@@ -342,18 +341,18 @@ class SSHDeploy:
 
             print "Starting StochSS"
             self.exec_command("cd /usr/local/stochss/ && screen -d -m ./run.ubuntu.sh")
-            print "Waiting for StochSS to become available:"
-            stochss_url = "https://{0}:{1}/".format(ip_address,port)
 
-            ctx = ssl.create_default_context()
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
-            while True:
+            stochss_url = "https://{0}:{1}/".format(ip_address,port)
+            print "Waiting for StochSS to become available at {0}".format(stochss_url)
+            context = ssl._create_unverified_context()
+            cnt=0;cnt_max=60
+            while cnt<cnt_max:
+                cnt+=1
                 try:
-                    req = urllib2.urlopen(stochss_url, context=ctx)
+                    req = urllib2.urlopen(stochss_url, context=context)
                     break
                 except Exception as e:
-                    #sys.stdout.write("{0}".format(e))
+            #        sys.stdout.write("{0}".format(e))
                     sys.stdout.write(".")
                     sys.stdout.flush()
                     time.sleep(1)
