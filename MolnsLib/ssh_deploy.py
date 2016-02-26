@@ -336,6 +336,9 @@ class SSHDeploy:
             print "Starting Nginx"
             self.exec_command("sudo nginx")
 
+            print "Checking out latest development version"
+            self.exec_command("cd /usr/local/stochss && git fetch && git checkout saas && git pull origin saas")
+
             print "Modifying StochSS to not open a webbrowser (TODO: move to install)"
             self.exec_command("sed -i 's/webbrowser.open_new(stochss_url)/pass/' /usr/local/stochss/run.ubuntu.sh")
 
