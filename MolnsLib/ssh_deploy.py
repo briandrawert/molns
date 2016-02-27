@@ -348,20 +348,22 @@ class SSHDeploy:
             stochss_url = "https://{0}:{1}/".format(ip_address,port)
             print "Waiting for StochSS to become available at {0}".format(stochss_url)
             
-            try:
-                # works for Python >= 2.7.9 
-                context = ssl._create_unverified_context()
-            except:
-                context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
-                context.verify_mode = ssl.CERT_NONE
-                context.verify_hostname = False
+
+                
 
             cnt=0;cnt_max=60
             while cnt<cnt_max:
                 cnt+=1
                 try:
-                    req = urllib2.urlopen(stochss_url, context=context)
-                    break
+                    try:
+                         # works only for Python >= 2.7.9 
+                        context = ssl._create_unverified_context()
+                        req = urllib2.urlopen(stochss_url, context=context)
+                        break
+                     except:
+                        # in python < 2.7.9 thre is no verification of the certs
+                        req = urllib2.urlopen(stochss_url)
+                        break
                 except Exception as e:
             #        sys.stdout.write("{0}".format(e))
                     sys.stdout.write(".")
