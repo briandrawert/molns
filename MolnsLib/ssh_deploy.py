@@ -347,7 +347,15 @@ class SSHDeploy:
 
             stochss_url = "https://{0}:{1}/".format(ip_address,port)
             print "Waiting for StochSS to become available at {0}".format(stochss_url)
-            context = ssl._create_unverified_context()
+            
+            try:
+                # works for Python >= 2.7.9 
+                context = ssl._create_unverified_context()
+            except:
+                context = ssl.create_default_context()
+                context.verify_mode = ssl.CERT_NONE
+                context.verify_hostname = False
+
             cnt=0;cnt_max=60
             while cnt<cnt_max:
                 cnt+=1
