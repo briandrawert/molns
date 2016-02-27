@@ -352,7 +352,7 @@ class SSHDeploy:
                 # works for Python >= 2.7.9 
                 context = ssl._create_unverified_context()
             except:
-                context = ssl.create_default_context()
+                context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
                 context.verify_mode = ssl.CERT_NONE
                 context.verify_hostname = False
 
