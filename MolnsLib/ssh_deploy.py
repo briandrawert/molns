@@ -356,11 +356,11 @@ class SSHDeploy:
                 cnt+=1
                 try:
                     try:
-                         # works only for Python >= 2.7.9 
+                        # works only for Python >= 2.7.9 
                         context = ssl._create_unverified_context()
                         req = urllib2.urlopen(stochss_url, context=context)
                         break
-                     except:
+                    except:
                         # in python < 2.7.9 thre is no verification of the certs
                         req = urllib2.urlopen(stochss_url)
                         break
