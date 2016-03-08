@@ -105,8 +105,6 @@ class InstallSW:
         
         "sudo pip install jsonschema jsonpointer",  #redo this install to be sure it has not been removed.
 
-        
-
         ## Install StochSS and GillesPy
         [
         "sudo apt-get -y install nginx",
