@@ -339,17 +339,16 @@ class SSHDeploy:
             print "Checking out latest development version"
             self.exec_command("cd /usr/local/stochss && git fetch && git checkout saas && git pull origin saas")
 
-            print "Modifying StochSS to not open a webbrowser (TODO: move to install)"
-            self.exec_command("sed -i 's/webbrowser.open_new(stochss_url)/pass/' /usr/local/stochss/run.ubuntu.sh")
+            print "Configuring StochSS"
+            admin_token = uuid.uuid4()
+            create_and_exchange_admin_token = "python /usr/local/stochss/generate_admin_token.py {0}".format(admin_token)
+            self.exec_command(create_and_exchange_admin_token)
 
             print "Starting StochSS"
-            self.exec_command("cd /usr/local/stochss/ && screen -d -m ./run.ubuntu.sh")
+            self.exec_command("cd /usr/local/stochss/ && screen -d -m ./run.ubuntu.sh --no_browser -t {0} -a {1}".format(admin_token, ip_address))
 
             stochss_url = "https://{0}:{1}/".format(ip_address,port)
             print "Waiting for StochSS to become available at {0}".format(stochss_url)
-            
-
-                
 
             cnt=0;cnt_max=60
             while cnt<cnt_max:
@@ -370,10 +369,6 @@ class SSHDeploy:
                     sys.stdout.flush()
                     time.sleep(1)
             print "Success!"
-            print "Configuring StochSS"
-            admin_token = uuid.uuid4()
-            create_and_exchange_admin_token = "python /usr/local/stochss/generate_admin_token.py {0}".format(admin_token)
-            self.exec_command(create_and_exchange_admin_token)
             time.sleep(1)
             stochss_url = "{0}login?secret_key={1}".format(stochss_url, admin_token)
             print "StochSS available: {0}".format(stochss_url)
