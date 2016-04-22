@@ -1,3 +1,5 @@
 *.pyc
 .molns/
 molns_install.log
+.ec2_creds_molns
+.idea/

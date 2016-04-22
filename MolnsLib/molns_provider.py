@@ -1,7 +1,10 @@
 import os
 import collections
+
+
 class ProviderException(Exception):
     pass
+
 
 class ProviderBase():
     """ Abstract class. """
