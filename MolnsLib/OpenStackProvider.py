@@ -43,6 +43,8 @@ class OpenStackProvider(OpenStackBase):
         {'q':'OpenStack project_name', 'default':os.environ.get('OS_TENANT_NAME'), 'ask':True}),
     ('neutron_nic',
         {'q':'Network ID (leave empty if only one possible network)', 'default':None, 'ask':True}),    
+    ('region_name',
+        {'q':'Specify the region (leave empty if only one region)', 'default':os.environ.get('OS_REGION_NAME'), 'ask':True}),    
     ('floating_ip_pool',
         {'q':'Name of Floating IP Pool (leave empty if only one possible pool)', 'default':None, 'ask':True}),
     ('nova_version',
@@ -192,7 +194,8 @@ class OpenStackProvider(OpenStackBase):
         creds['api_key'] = self.config['nova_password']
         creds['auth_url'] = self.config['nova_auth_url']
         creds['project_id'] = self.config['nova_project_id']
-        #creds['region_name'] = "regionOne"
+        if 'region_name' in self.config and self.config['region_name'] is not None:
+            creds['region_name'] = self.config['region_name']
         self.nova = novaclient.Client(self.config['nova_version'], **creds)
         self.connected = True
 
