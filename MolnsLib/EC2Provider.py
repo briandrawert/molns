@@ -272,7 +272,7 @@ class EC2Controller(EC2Base):
 
 ##########################################
 class EC2WorkerGroup(EC2Controller):
-    """ Provider handle for an open stack controller. """
+    """ Provider handle for EC2 worker group. """
     
     OBJ_NAME = 'EC2WorkerGroup'
 
