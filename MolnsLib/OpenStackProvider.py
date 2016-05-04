@@ -3,6 +3,9 @@ import sys
 import time
 import logging
 from novaclient import client as novaclient
+from keystoneauth1 import loading
+from keystoneauth1 import session
+
 from collections import OrderedDict
 import collections
 import installSoftware
@@ -107,7 +110,13 @@ class OpenStackProvider(OpenStackBase):
             raise ProviderException("ssh_key_file '{0}' already exists".format(self.config['key_name']))
 
         self._connect()
-        new_key = self.nova.keypairs.create(name=self.config['key_name'])
+        print self.nova.servers.list()
+
+        try:
+            new_key = self.nova.keypairs.create(name=self.config['key_name'])
+        except Exception,e:
+            print "Failed to create new ssh-key: {0}".format(e)
+            raise
         #with open(ssh_key_file, 'w') as fd:
         with os.fdopen(os.open(ssh_key_file, os.O_WRONLY | os.O_CREAT, 0600), 'w') as fd:
             fd.write(new_key.private_key)
@@ -191,13 +200,27 @@ class OpenStackProvider(OpenStackBase):
         if self.connected: return
         creds = {}
         creds['username'] = self.config['nova_username']
-        creds['api_key'] = self.config['nova_password']
+        creds['password'] = self.config['nova_password']
         creds['auth_url'] = self.config['nova_auth_url']
-        creds['project_id'] = self.config['nova_project_id']
+        # New version of the nova API uses "project_name" instead of "project_id"
+        creds['project_name'] = self.config['nova_project_id']
+        # Keystone V3 requires these parameters as well.
+        creds['user_domain_name'] = "Default"
+        creds['project_domain_name'] = "Default"
+        
+        #print creds
+        loader = loading.get_plugin_loader('password')
+        auth = loader.load_from_options(**creds)
+        sess = session.Session(auth=auth)
+
         if 'region_name' in self.config and self.config['region_name'] is not None:
             creds['region_name'] = self.config['region_name']
-        self.nova = novaclient.Client(self.config['nova_version'], **creds)
-        self.connected = True
+        try:
+            self.nova = novaclient.Client(self.config['nova_version'], session=sess,region_name=self.config['region_name'], insecure=True)
+            self.connected = True
+        except Exception,e:
+            print "Failed to establish clinent connection: {0}".format(str(e))
+            logging.error("Failed to establish clinent connection: {0}".format(str(e)))
 
     def _get_image_name(self):
         return "MOLNS_{0}_{1}_{2}".format(self.PROVIDER_TYPE, self.name, int(time.time()))
