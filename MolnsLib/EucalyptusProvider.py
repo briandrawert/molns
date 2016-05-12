@@ -136,6 +136,8 @@ class EucalyptusProvider(EucalyptusBase):
 
     def check_molns_image(self):
         """ Check if the molns image is created. """
+        sys.stdout.write("DEBUGGING: EucalyptusProvider.check_molns_image(): skipping\n")
+        return True
         if 'molns_image_name' in self.config and self.config['molns_image_name'] is not None and self.config['molns_image_name'] != '':
             self._connect()
             return self.eucalyptus.image_exists(self.config['molns_image_name'])
@@ -143,6 +145,8 @@ class EucalyptusProvider(EucalyptusBase):
 
     def create_molns_image(self):
         """ Create the molns image is created. """
+        sys.stdout.write("DEBUGGING: EucalyptusProvider.create_molns_image(): skipping\n")
+        return True
         self._connect()
         # clear the network-related persisent udev rules:
         #echo "" > /etc/udev/rules.d/70-persistent-net.rules
@@ -231,6 +235,13 @@ class EucalyptusController(EucalyptusBase):
                 ip = instance.public_dns_name
                 i  = self.datastore.get_instance(provider_instance_identifier=instance.id, ip_address=ip, provider_id=self.provider.id, controller_id=self.id)
                 ret.append(i)
+                ###################################
+                logging.debug("Installing software on server (ip={0})".format(ip))
+                install_vm_instance = installSoftware.InstallSW(ip, config=self)
+                install_vm_instance.run_with_logging()
+                logging.debug("Completed installing software on server (ip={0})".format(ip))
+                ###################################
+
             if num == 1:
                 return ret[0]
             else:
