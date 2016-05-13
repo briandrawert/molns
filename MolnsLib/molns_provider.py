@@ -25,7 +25,7 @@ class ProviderBase():
         SecurityGroupRule("tcp", "9000", "65535", "0.0.0.0/0", None),
     ]
     
-    def __init__(self, name, config=None, config_dir=None,**kwargs):
+    def __init__(self, name, config=None, config_dir=None, **kwargs):
         self.config = {}
         self.name = name
         self.type = self.PROVIDER_TYPE

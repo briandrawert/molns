@@ -1,7 +1,7 @@
 import os
 import logging
 
-from MolnsLib.constants import Constants
+from MolnsLib.Constants import Constants
 
 
 class Logger(object):

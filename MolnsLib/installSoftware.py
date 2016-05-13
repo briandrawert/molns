@@ -268,7 +268,6 @@ class InstallSW:
                 raise SystemExit("CRITICAL ERROR: could not complete command '{0}'. Exiting.".format(command))
         print "Installation complete in {0}s".format(time.time() - tic)
 
-
     def log_exec(self, msg):
         if self.log_file is not None:
             self.log_file.write(msg)
@@ -331,6 +330,11 @@ class InstallSW:
         except paramiko.SSHException as e:
             print "FAILED......\t{0}:{1}\t{2}\t{3}".format(self.hostname, self.ssh_endpoint, command, e)
             raise InstallSWException()
+
+    @staticmethod
+    def get_command_list():
+        """Returns the whole list of dependency installation commands. """
+        return InstallSW.command_list
 
 if __name__ == "__main__":
     print "{0}".format(InstallSW.command_list)
