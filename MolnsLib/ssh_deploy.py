@@ -152,6 +152,8 @@ class SSHDeploy:
         config["provider_type"] = self.config.type
         config["bucket_name"] = "molns_storage_{1}_{0}".format(self.get_cluster_id(), self.provider_name)
         config["credentials"] = self.config.get_config_credentials()
+        # Only used for OpenStack, Keystone auth API version (2.0 or 3.0)
+        config["auth_version"] = self.config["auth_version"]
         s3_config_file.write(json.dumps(config))
         s3_config_file.close()
         sftp.close()

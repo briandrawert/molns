@@ -52,6 +52,12 @@ class OpenStackProvider(OpenStackBase):
         {'q':'Name of Floating IP Pool (leave empty if only one possible pool)', 'default':None, 'ask':True}),
     ('nova_version',
         {'q':'Enter the version of the OpenStack NOVA API', 'default':"2", 'ask':True}),
+    ('auth_version',
+      {'q':'Enter the version of the OpenStack KeyStone API', 'default':"2", 'ask':True}),
+    ('os_user_domain_name',
+      {'q':'OpenStack user domain name', 'default':os.environ.get('OS_USER_DOMAIN_NAME'), 'ask':True}),
+    ('os_project_domain_name',
+      {'q':'OpenStack project domain name', 'default':os.environ.get('OS_PROJECT_DOMAIN_NAME'), 'ask':True}),
     ('key_name',
         {'q':'OpenStack Key Pair name', 'default':OpenStackProvider_default_key_name(), 'ask':True}),
     ('group_name',
@@ -205,9 +211,9 @@ class OpenStackProvider(OpenStackBase):
         # New version of the nova API uses "project_name" instead of "project_id"
         creds['project_name'] = self.config['nova_project_id']
         # Keystone V3 requires these parameters as well.
-        creds['user_domain_name'] = "Default"
-        creds['project_domain_name'] = "Default"
-        
+        creds['user_domain_name'] = self.config['os_user_domain_name']
+        creds['project_domain_name'] = self.config['os_project_domain_name']
+
         #print creds
         loader = loading.get_plugin_loader('password')
         auth = loader.load_from_options(**creds)
@@ -219,8 +225,8 @@ class OpenStackProvider(OpenStackBase):
             self.nova = novaclient.Client(self.config['nova_version'], session=sess,region_name=self.config['region_name'], insecure=True)
             self.connected = True
         except Exception,e:
-            print "Failed to establish clinent connection: {0}".format(str(e))
-            logging.error("Failed to establish clinent connection: {0}".format(str(e)))
+            print "Failed to establish client connection: {0}".format(str(e))
+            logging.error("Failed to establish client connection: {0}".format(str(e)))
 
     def _get_image_name(self):
         return "MOLNS_{0}_{1}_{2}".format(self.PROVIDER_TYPE, self.name, int(time.time()))
