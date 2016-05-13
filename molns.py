@@ -11,9 +11,6 @@ import multiprocessing
 import json
 
 import logging
-logger = logging.getLogger()
-#logger.setLevel(logging.INFO)  #for Debugging
-logger.setLevel(logging.CRITICAL)
 ###############################################
 class MOLNSException(Exception):
     pass
@@ -1522,4 +1519,7 @@ def parseArgs():
 
 
 if __name__ == "__main__":
+    logger = logging.getLogger()
+    #logger.setLevel(logging.INFO)  #for Debugging
+    logger.setLevel(logging.CRITICAL)
     parseArgs()
