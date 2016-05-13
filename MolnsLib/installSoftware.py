@@ -56,7 +56,7 @@ class InstallSW:
                     
         [
          "sudo rm -rf /usr/local/molnsutil;sudo mkdir -p /usr/local/molnsutil;sudo chown ubuntu /usr/local/molnsutil",
-         "cd /usr/local/ && git clone https://github.com/Molns/molnsutil.git",
+         "cd /usr/local/ && git clone https://github.com/ahellander/molnsutil.git",
          "cd /usr/local/molnsutil && sudo python setup.py install"
         ],
 
@@ -76,29 +76,6 @@ class InstallSW:
         ],
                     
                     
-        ### Simulation software related to pyurdme and StochSS
-
-        # Gillespy
-        [   "sudo rm -rf /usr/local/StochKit;sudo mkdir -p /usr/local/StochKit;sudo chown ubuntu /usr/local/StochKit",
-            "cd /usr/local/ && git clone https://github.com/StochSS/stochkit.git StochKit",
-            "cd /usr/local/StochKit && ./install.sh",
-         
-            "sudo rm -rf /usr/local/ode-1.0.2;sudo mkdir -p /usr/local/ode-1.0.2/;sudo chown ubuntu /usr/local/ode-1.0.2",
-            "wget https://github.com/StochSS/stochss/blob/master/ode-1.0.2.tgz?raw=true -q -O /tmp/ode.tgz",
-            "cd /usr/local/ && tar -xzf /tmp/ode.tgz",
-            "rm /tmp/ode.tgz",
-            "cd /usr/local/ode-1.0.2/cvodes/ && tar -xzf \"cvodes-2.7.0.tar.gz\"",
-            "cd /usr/local/ode-1.0.2/cvodes/cvodes-2.7.0/ && ./configure --prefix=\"/usr/local/ode-1.0.2/cvodes/cvodes-2.7.0/cvodes\" 1>stdout.log 2>stderr.log",
-            "cd /usr/local/ode-1.0.2/cvodes/cvodes-2.7.0/ && make 1>stdout.log 2>stderr.log",
-            "cd /usr/local/ode-1.0.2/cvodes/cvodes-2.7.0/ && make install 1>stdout.log 2>stderr.log",
-            "cd /usr/local/ode-1.0.2/ && STOCHKIT_HOME=/usr/local/StochKit/ STOCHKIT_ODE=/usr/local/ode-1.0.2/ make 1>stdout.log 2>stderr.log",
-         
-            "sudo rm -rf /usr/local/gillespy;sudo mkdir -p /usr/local/gillespy;sudo chown ubuntu /usr/local/gillespy",
-            "cd /usr/local/ && git clone https://github.com/MOLNs/gillespy.git",
-            "cd /usr/local/gillespy && sudo STOCHKIT_HOME=/usr/local/StochKit/ STOCHKIT_ODE_HOME=/usr/local/ode-1.0.2/ python setup.py install"
-
-        ],
-
         # FeniCS/Dolfin/pyurdme
         [   "sudo add-apt-repository -y ppa:fenics-packages/fenics",
             "sudo apt-get update",
@@ -122,12 +99,28 @@ class InstallSW:
         ],
                     
         # Upgrade scipy from pip to get rid of super-annoying six.py bug on Trusty
-        "sudo apt-get -y remove python-scipy",
-        "sudo pip install scipy",
+        #"sudo apt-get -y remove python-scipy",
+        "sudo pip install --upgrade scipy",
+        "sudo pip install --upgrade numpy",
         
         "sudo pip install jsonschema jsonpointer",  #redo this install to be sure it has not been removed.
 
-        
+        ## Install StochSS and GillesPy
+        [
+        "sudo apt-get -y install nginx",
+        "sudo update-rc.d -f nginx disable",
+        "sudo pip install python-libsbml",
+        "sudo apt-get install python-mysql.connector",
+        "sudo mkdir -p /usr/local/stochss/",
+        "sudo chown ubuntu /usr/local/stochss/",
+        "cd /usr/local/ && git clone --recursive https://github.com/StochSS/stochss.git",
+        "cd /usr/local/stochss && git checkout saas",
+        "cd /usr/local/stochss/ && ./run.ubuntu.sh --install --yy",
+        "sudo STOCHSS_HOME=/usr/local/stochss/ pip install https://github.com/briandrawert/GillesPy/tarball/master/",
+        "python -c 'import gillespy'"
+        ],
+
+                    
         "sync",  # This is critial for some infrastructures.
     ]
     

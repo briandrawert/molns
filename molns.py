@@ -225,7 +225,7 @@ class MOLNSController(MOLNSbase):
             try:
                 controller_obj = config.create_object(ptype=provider_obj.type, name=controller_name, kind='Controller', provider_id=provider_id)
             except DatastoreException as e:
-                print e
+                print "Datastor exception: {0}".format(str(e))
                 return
         setup_object(controller_obj)
         config.save_object(controller_obj, kind='Controller')
@@ -434,7 +434,7 @@ class MOLNSController(MOLNSbase):
         sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
         sshdeploy.deploy_ipython_controller(inst.ip_address, notebook_password=password)
         sshdeploy.deploy_molns_webserver(inst.ip_address)
-        #sshdeploy.deploy_stochss(inst.ip_address, port=443)
+            #sshdeploy.deploy_stochss(inst.ip_address)
 
     @classmethod
     def stop_controller(cls, args, config):
@@ -1083,7 +1083,7 @@ class MOLNSProvider(MOLNSbase):
                 provider_obj = config.create_object(name=args[0], ptype=provider_type, kind='Provider')
             except DatastoreException as e:
                 logging.exception(e)
-                print e
+                print "Datastore exception: {0}".format(str(e))
                 return
         print "Enter configuration for provider {0}:".format(args[0])
         setup_object(provider_obj)
