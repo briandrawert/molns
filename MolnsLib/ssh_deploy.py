@@ -191,7 +191,7 @@ class SSHDeploy:
     def _get_ipython_client_file(self):
         sftp = self.ssh.open_sftp()
         engine_file = sftp.file(self.profile_dir_server + 'security/ipcontroller-client.json', 'r')
-        engine_file.prefetch()
+        engine_file.prefetch(file_size=None)
         file_data = engine_file.read()
         engine_file.close()
         sftp.close()
@@ -207,7 +207,7 @@ class SSHDeploy:
     def _get_ipython_engine_file(self):
         sftp = self.ssh.open_sftp()
         engine_file = sftp.file(self.profile_dir_server + 'security/ipcontroller-engine.json', 'r')
-        engine_file.prefetch()
+        engine_file.prefetch(file_size=None)
         file_data = engine_file.read()
         engine_file.close()
         sftp.close()
