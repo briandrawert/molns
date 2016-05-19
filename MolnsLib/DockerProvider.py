@@ -4,7 +4,9 @@ import time
 import os
 import Docker
 import installSoftware
+import tempfile
 
+from io import BytesIO
 from collections import OrderedDict
 from molns_provider import ProviderBase, ProviderException
 
@@ -58,19 +60,24 @@ class DockerProvider(DockerBase):
         """ Create the molns image and save it locally. """
         self._connect()
 
-        # create container
-        container = self.docker.create_container()
-
-        # install software
+        # create Dockerfile and build container.
         try:
-            logger.debug("Installing software on container ID: {0}".format(container.get('Id')))
-            self._run_commands(container, installSoftware.InstallSW.get_command_list())
+            logging.debug("Creating Dockerfile...")
+            dockerfile = self._create_dockerfile(installSoftware.InstallSW.get_command_list())
+            logging.debug("---------------Dockerfile----------------")
+            logging.debug(dockerfile)
+            logging.debug("-----------------------------------------")
+            logging.debug("Building image...")
+            tmpf = tempfile.NamedTemporaryFile()
+            tmpf.write(dockerfile)
+            logging.debug("tmph name: " + tmpf.name)
+            tmpf.seek(0)
+            image_tag = self.docker.build_image(tmpf)
+            logging.debug("Image created.")
+            return image_tag
         except Exception as e:
             logger.exception(e)
             raise ProviderException("Failed to create molns image: {0}".format(e))
-        finally:
-            logger.debug("Stopping container {0}".format(container))
-            self.docker.stop_containers([container])
 
     def check_molns_image(self):
         """ Check if the molns image exists. """
@@ -86,23 +93,43 @@ class DockerProvider(DockerBase):
         self.docker = Docker.Docker()
         self.connected = True
 
-    def _run_commands(self, container, commands):
-        """Run given commands in the given container. Fails if even a single command returns non-zero error code. """
+    def _create_dockerfile(self, commands):
+        """ Create Dockerfile from given commands. """
+        dockerfile = '''FROM ubuntu:14.04\nRUN apt-get update\n# Set up base environment.\nRUN apt-get install -yy \ \n  software-properties-common \ \n    python-software-properties \ \n    wget \ \n    git \ \n    ipython \n# Add user ubuntu.\nRUN useradd -ms /bin/bash ubuntu\nWORKDIR /home/ubuntu\n'''
 
-        # Start container and exec given commands in it.
-
-        self._connect()
+        flag = False
 
         for entry in commands:
             if isinstance(entry, list):
+                dockerfile += '''\n\nRUN '''
+                first = True
+                flag = False
                 for sub_entry in entry:
-                    ret_val, response = self.docker.execute_command(container, sub_entry)
-                    if ret_val is None or ret_val.get('ExitCode') != 0:
-                        raise installSoftware.InstallSWException()
+                    if first is True:
+                        dockerfile += self._preprocess(sub_entry)
+                        first = False
+                    else:
+                        dockerfile += ''' && \ \n   ''' + self._preprocess(sub_entry)
             else:
-                ret_val, response = self.docker.execute_command(container, entry)
-                if ret_val is None or ret_val.get('ExitCode') != 0:
-                        raise installSoftware.InstallSWException()
+                if flag is False:
+                    dockerfile += '''\n\nRUN '''
+                    flag = True
+                    dockerfile += self._preprocess(entry)
+                else:
+                    dockerfile += ''' && \ \n    ''' + self._preprocess(entry)
+
+        dockerfile += '''\n\nUSER ubuntu\nENV HOME /home/ubuntu'''
+
+        return dockerfile
+
+    def _preprocess(self, command):
+        """ Filters out any sudos in the command, prepends shell only commands with '/bin/bash -c'. """
+        for shell_command in Docker.Docker.shell_commands:
+            if shell_command in command:
+                replace_string = "/bin/bash -c \"" + shell_command
+                command = command.replace(shell_command, replace_string)
+                command += "\""
+        return command.replace("sudo", "")
 
 
 class DockerController(DockerBase):

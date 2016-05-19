@@ -63,6 +63,7 @@ class InstallSW:
         # So the workers can mount the controller via SSHfs
         [   "sudo apt-get -y install sshfs",
             "sudo gpasswd -a ubuntu fuse",
+            "mkdir -p /home/ubuntu/.ssh/",
             "echo 'ServerAliveInterval 60' >> /home/ubuntu/.ssh/config",
         ],
                     
@@ -108,16 +109,16 @@ class InstallSW:
         ],
         
         # pyurdme
-        [   "sudo rm -rf /usr/local/pyurdme;sudo mkdir -p /usr/local/pyurdme;sudo chown ubuntu /usr/local/pyurdme",
+        [   "sudo rm -rf /usr/local/pyurdme && sudo mkdir -p /usr/local/pyurdme && sudo chown ubuntu /usr/local/pyurdme",
             "cd /usr/local/ && git clone https://github.com/MOLNs/pyurdme.git",
             #"cd /usr/local/pyurdme && git checkout develop",  # for development only
-            "cp /usr/local/pyurdme/pyurdme/data/three.js_templates/js/* .ipython/profile_default/static/custom/",
+            "cp /usr/local/pyurdme/pyurdme/data/three.js_templates/js/* $HOME/.ipython/profile_default/static/custom/", # TODO added $HOME here. Is it okay?
             "source /usr/local/pyurdme/pyurdme_init && python -c 'import pyurdme'",
         ],
          
         # example notebooks
-        [  "rm -rf MOLNS_notebooks;git clone https://github.com/Molns/MOLNS_notebooks.git",
-            "cp MOLNS_notebooks/*.ipynb .;rm -rf MOLNS_notebooks;",
+        [  "rm -rf MOLNS_notebooks && git clone https://github.com/Molns/MOLNS_notebooks.git",
+            "cp MOLNS_notebooks/*.ipynb . && rm -rf MOLNS_notebooks",
             "ls *.ipynb"
         ],
                     

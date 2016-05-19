@@ -11,8 +11,11 @@ class Docker:
 
     LOG_TAG = "Docker"
 
+    shell_commands = ["source"]
+
     def __init__(self):
         self.client = Client(base_url=Constants.DOCKER_BASE_URL)
+        self.build_count = 0
         logging.basicConfig(level=logging.DEBUG)
 
     def create_container(self, image_id=Constants.DOCKER_DEFAULT_IMAGE):
@@ -62,3 +65,12 @@ class Docker:
         except (NotFound, APIError) as e:
             logging.error(Docker.LOG_TAG + " Could not execute command.", e)
             return None
+
+    def build_image(self, Dockerfile):
+        """ Build image from given Dockerfile object and return build output. """
+        self.build_count += 1
+        logging.debug("Dockerfile name: " + Dockerfile.name)
+        image_tag = "aviralcse/docker-provider-{0}".format(self.build_count)
+        for line in self.client.build(fileobj=Dockerfile, rm=True, tag=image_tag):
+            print(line)
+        return image_tag
