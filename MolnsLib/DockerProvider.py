@@ -6,13 +6,8 @@ import Docker
 import installSoftware
 import tempfile
 
-from io import BytesIO
 from collections import OrderedDict
 from molns_provider import ProviderBase, ProviderException
-
-logging.basicConfig()
-logger = logging.getLogger("DockerProvider")
-logger.setLevel(logging.DEBUG)
 
 
 def docker_provider_default_key_name():
@@ -28,7 +23,7 @@ class DockerBase(ProviderBase):
 
 
 class DockerProvider(DockerBase):
-    """ Provider handle for local Docker service. """
+    """ Provider handle for local Docker based service. """
 
     OBJ_NAME = 'DockerProvider'
 
@@ -40,9 +35,22 @@ class DockerProvider(DockerBase):
          {'q': 'Local MOLNs image name to use', 'default': None, 'ask': True})
     ])
 
+    counter = 0
+
+    @staticmethod
+    def __get_new_dockerfile_name():
+        DockerProvider.counter += 1
+        filename = Constants.Constants.DOCKERFILE_NAME + str(DockerProvider.counter)
+        return filename
+
+    def _connect(self):
+        if self.connected:
+            return
+        self.docker = Docker.Docker()
+        self.connected = True
+
     def check_ssh_key(self):
-        """ Returns true, because Docker does not use SSH.
-        """
+        """ Returns true. (Docker does not use SSH.)"""
         return True
 
     def create_ssh_key(self):
@@ -55,46 +63,35 @@ class DockerProvider(DockerBase):
 
     def create_seurity_group(self):
         """ Does nothing. """
+        return True
 
     def create_molns_image(self):
-        """ Create the molns image and save it locally. """
-        self._connect()
+        """ Create the molns image, save it on localhost and return ID of created image. """
 
+        self._connect()
         # create Dockerfile and build container.
         try:
             logging.debug("Creating Dockerfile...")
             dockerfile = self._create_dockerfile(installSoftware.InstallSW.get_command_list())
-            logging.debug("---------------Dockerfile----------------")
-            logging.debug(dockerfile)
-            logging.debug("-----------------------------------------")
-            logging.debug("Building image...")
-            tmpf = tempfile.NamedTemporaryFile()
-            tmpf.write(dockerfile)
-            logging.debug("tmph name: " + tmpf.name)
-            tmpf.seek(0)
-            image_tag = self.docker.build_image(tmpf)
+            image_tag = self.docker.build_image(dockerfile)
             logging.debug("Image created.")
             return image_tag
         except Exception as e:
-            logger.exception(e)
+            logging.exception(e)
             raise ProviderException("Failed to create molns image: {0}".format(e))
 
     def check_molns_image(self):
         """ Check if the molns image exists. """
+
         if 'molns_image_name' in self.config and self.config['molns_image_name'] is not None and self.config[
             'molns_image_name'] != '':
             self._connect()
             return self.docker.image_exists(self.config['molns_image_name'])
         return False
 
-    def _connect(self):
-        if self.connected:
-            return
-        self.docker = Docker.Docker()
-        self.connected = True
-
     def _create_dockerfile(self, commands):
         """ Create Dockerfile from given commands. """
+
         dockerfile = '''FROM ubuntu:14.04\nRUN apt-get update\n# Set up base environment.\nRUN apt-get install -yy \ \n  software-properties-common \ \n    python-software-properties \ \n    wget \ \n    git \ \n    ipython \n# Add user ubuntu.\nRUN useradd -ms /bin/bash ubuntu\nWORKDIR /home/ubuntu\n'''
 
         flag = False
@@ -120,10 +117,19 @@ class DockerProvider(DockerBase):
 
         dockerfile += '''\n\nUSER ubuntu\nENV HOME /home/ubuntu'''
 
-        return dockerfile
+        dockerfile_file = DockerProvider.__get_new_dockerfile_name()
+        with open(dockerfile_file, 'w') as Dockerfile:
+            Dockerfile.write(dockerfile)
+        print("Using as dockerfile : " + dockerfile_file)
+        named_dockerfile = tempfile.NamedTemporaryFile()
+        named_dockerfile.write(dockerfile)
+        named_dockerfile.seek(0)
+
+        return named_dockerfile
 
     def _preprocess(self, command):
         """ Filters out any sudos in the command, prepends shell only commands with '/bin/bash -c'. """
+
         for shell_command in Docker.Docker.shell_commands:
             if shell_command in command:
                 replace_string = "/bin/bash -c \"" + shell_command

@@ -13,6 +13,10 @@ class Docker:
 
     shell_commands = ["source"]
 
+    class ImageBuildException(Exception):
+        def __init__(self):
+            super("Something went wrong while building docker container image.")
+
     def __init__(self):
         self.client = Client(base_url=Constants.DOCKER_BASE_URL)
         self.build_count = 0
@@ -20,39 +24,48 @@ class Docker:
 
     def create_container(self, image_id=Constants.DOCKER_DEFAULT_IMAGE):
         """Create a new container."""
+
         logging.debug(Docker.LOG_TAG + " Using image {0}".format(image_id))
         container = self.client.create_container(image=image_id, command="/bin/bash", tty=True, detach=True)
-        # TODO self.execute_command(container, "su - ubuntu")
         return container
 
-    def stop_containers(self, containers):
+    def stop_containers(self, container_ids):
         """Stop given containers."""
-        for container in containers:
-            self.stop_container(container)
 
-    def stop_container(self, container):
-        self.client.stop(container)
+        for container_id in container_ids:
+            self.stop_container(container_id)
 
-    def is_container_running(self, container):
-        """Check if container of given name is running or not."""
-        return self.client.inspect_container(container.get('Id')).get('State').get('Status')
+    def stop_container(self, container_id):
+        """Stop the container with given ID."""
 
-    def start_containers(self, containers):
-        """Start each container object in given list."""
-        for container in containers:
-            self.start_container(container)
+        self.client.stop(container_id)
 
-    def start_container(self, container):
-        logging.debug(Docker.LOG_TAG + " Starting container " + container.get('Id'))
+    def container_status(self, container_id):
+        """Is the container with given ID running?"""
+
+        return self.client.inspect_container(container_id).get('State').get('Status')
+
+    def start_containers(self, container_ids):
+        """Start each container in given list of container IDs."""
+
+        for container_id in container_ids:
+            self.start_container(container_id)
+
+    def start_container(self, container_id):
+        """ Start the container with given ID."""
+
+        logging.debug(Docker.LOG_TAG + " Starting container " + container_id)
         try:
-            self.client.start(container.get('Id'))
+            self.client.start(container=container_id)
         except (NotFound, NullResource) as e:
             logging.error(Docker.LOG_TAG + " Something went wrong while starting container.", e)
             return False
         return True
 
     def execute_command(self, container, command):
-        logging.debug(Docker.LOG_TAG + " Container ID: {0}         Command: {1}".format(container.get('Id'), command))
+        """Executes given command as a shell command in the given container. Returns None is anything goes wrong."""
+
+        logging.debug(Docker.LOG_TAG + " CONTAINER: {0} COMMAND: {1}".format(container.get('Id'), command))
 
         if self.start_container(container) is False:
             logging.error("Docker", " Could not start container.")
@@ -66,11 +79,34 @@ class Docker:
             logging.error(Docker.LOG_TAG + " Could not execute command.", e)
             return None
 
-    def build_image(self, Dockerfile):
-        """ Build image from given Dockerfile object and return build output. """
-        self.build_count += 1
-        logging.debug("Dockerfile name: " + Dockerfile.name)
-        image_tag = "aviralcse/docker-provider-{0}".format(self.build_count)
-        for line in self.client.build(fileobj=Dockerfile, rm=True, tag=image_tag):
-            print(line)
-        return image_tag
+    def build_image(self, dockerfile):
+        """ Build image from given Dockerfile object and return ID of the image created. """
+
+        print("Building image...")
+        image_tag = Constants.DOCKER_IMAGE_PREFIX + "{0}".format(self.build_count)
+        last_line = ""
+        try:
+            for line in self.client.build(fileobj=dockerfile, rm=True, tag=image_tag):
+                print(line)
+                if "errorDetail" in line: raise Docker.ImageBuildException()
+                last_line = line
+
+            # Return image ID. It's a hack around the fact that docker-py's build image command doesn't return an image
+            # id.
+            tokens = last_line.split(" ")
+            image_id = tokens[3][:Constants.DOKCER_IMAGE_ID_LENGTH]
+            print("Image ID: {0}".format(image_id))
+            return image_id
+        except (Docker.ImageBuildException, IndexError) as e:
+            print(e)
+            return None
+
+    def image_exists(self, image_id):
+        """Check if image with given ID exists locally."""
+
+        for image in self.client.images():
+            some_id = image["Id"]
+            if image_id in some_id[:(Constants.DOCKER_PY_IMAGE_ID_PREFIX_LENGTH + Constants.DOKCER_IMAGE_ID_LENGTH)]:
+                logging.debug("Image exists: " + image)
+                return True
+        return False

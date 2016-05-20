@@ -1,35 +1,34 @@
 #!/usr/bin/env python
 import os
-import re
 import sys
 from MolnsLib.molns_datastore import Datastore, DatastoreException, VALID_PROVIDER_TYPES, get_provider_handle
 from MolnsLib.molns_provider import ProviderException
-from collections import OrderedDict
 import subprocess
 from MolnsLib.ssh_deploy import SSHDeploy
 import multiprocessing
 import json
-
 import logging
-logger = logging.getLogger()
-#logger.setLevel(logging.INFO)  #for Debugging
-logger.setLevel(logging.CRITICAL)
+
+
 ###############################################
 class MOLNSException(Exception):
     pass
 
+
 ###############################################
 class MOLNSConfig(Datastore):
     def __init__(self, config_dir=None, db_file=None):
-        Datastore.__init__(self,config_dir=config_dir, db_file=db_file)
+        Datastore.__init__(self, config_dir=config_dir, db_file=db_file)
 
     def __str__(self):
         return "MOLNSConfig(config_dir={0})".format(self.config_dir)
 
+
 ###############################################
 class MOLNSbase():
+
     @classmethod
-    def merge_config(self, obj, config):
+    def merge_config(cls, obj, config):
         for key, conf, value in obj.get_config_vars():
             if key not in config:
                 if value is not None:
