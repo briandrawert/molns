@@ -35,12 +35,10 @@ class DockerProvider(DockerBase):
          {'q': 'Local MOLNs image name to use', 'default': None, 'ask': True})
     ])
 
-    counter = 0
-
     @staticmethod
     def __get_new_dockerfile_name():
-        DockerProvider.counter += 1
-        filename = Constants.Constants.DOCKERFILE_NAME + str(DockerProvider.counter)
+        import uuid
+        filename = Constants.Constants.DOCKERFILE_NAME + str(uuid.uuid4())
         return filename
 
     def _connect(self):
@@ -50,39 +48,37 @@ class DockerProvider(DockerBase):
         self.connected = True
 
     def check_ssh_key(self):
-        """ Returns true. (Docker does not use SSH.)"""
+        """ Returns true. (Implementation does not use SSH.) """
         return True
 
     def create_ssh_key(self):
-        """ Does nothing. """
+        """ Returns true. (Implementation does not use SSH.) """
         return True
 
     def check_security_group(self):
-        """ Does nothing."""
+        """ Returns true. (Implementation does not use SSH.) """
         return True
 
     def create_seurity_group(self):
-        """ Does nothing. """
+        """ Returns true. (Implementation does not use SSH.) """
         return True
 
     def create_molns_image(self):
-        """ Create the molns image, save it on localhost and return ID of created image. """
-
+        """ Create a molns image, save it on localhost and return ID of created image. """
         self._connect()
         # create Dockerfile and build container.
         try:
             logging.debug("Creating Dockerfile...")
             dockerfile = self._create_dockerfile(installSoftware.InstallSW.get_command_list())
-            image_tag = self.docker.build_image(dockerfile)
+            image_id = self.docker.build_image(dockerfile)
             logging.debug("Image created.")
-            return image_tag
+            return image_id
         except Exception as e:
             logging.exception(e)
             raise ProviderException("Failed to create molns image: {0}".format(e))
 
     def check_molns_image(self):
         """ Check if the molns image exists. """
-
         if 'molns_image_name' in self.config and self.config['molns_image_name'] is not None and self.config[
             'molns_image_name'] != '':
             self._connect()
@@ -91,8 +87,9 @@ class DockerProvider(DockerBase):
 
     def _create_dockerfile(self, commands):
         """ Create Dockerfile from given commands. """
-
-        dockerfile = '''FROM ubuntu:14.04\nRUN apt-get update\n# Set up base environment.\nRUN apt-get install -yy \ \n  software-properties-common \ \n    python-software-properties \ \n    wget \ \n    git \ \n    ipython \n# Add user ubuntu.\nRUN useradd -ms /bin/bash ubuntu\nWORKDIR /home/ubuntu\n'''
+        dockerfile = '''FROM ubuntu:14.04\nRUN apt-get update\n# Set up base environment.\nRUN apt-get install -yy \ \n
+         software-properties-common \ \n    python-software-properties \ \n    wget \ \n    git \ \n    ipython \n
+         # Add user ubuntu.\nRUN useradd -ms /bin/bash ubuntu\nWORKDIR /home/ubuntu\n'''
 
         flag = False
 
@@ -128,8 +125,7 @@ class DockerProvider(DockerBase):
         return named_dockerfile
 
     def _preprocess(self, command):
-        """ Filters out any sudos in the command, prepends shell only commands with '/bin/bash -c'. """
-
+        """ Filters out any sudos in the command, prepends "shell only" commands with '/bin/bash -c'. """
         for shell_command in Docker.Docker.shell_commands:
             if shell_command in command:
                 replace_string = "/bin/bash -c \"" + shell_command

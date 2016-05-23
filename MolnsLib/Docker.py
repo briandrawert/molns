@@ -23,37 +23,31 @@ class Docker:
         logging.basicConfig(level=logging.DEBUG)
 
     def create_container(self, image_id=Constants.DOCKER_DEFAULT_IMAGE):
-        """Create a new container."""
-
+        """Creates a new container."""
         logging.debug(Docker.LOG_TAG + " Using image {0}".format(image_id))
         container = self.client.create_container(image=image_id, command="/bin/bash", tty=True, detach=True)
         return container
 
     def stop_containers(self, container_ids):
-        """Stop given containers."""
-
+        """Stops given containers."""
         for container_id in container_ids:
             self.stop_container(container_id)
 
     def stop_container(self, container_id):
-        """Stop the container with given ID."""
-
+        """Stops the container with given ID."""
         self.client.stop(container_id)
 
     def container_status(self, container_id):
-        """Is the container with given ID running?"""
-
+        """Checks if container with given ID running."""
         return self.client.inspect_container(container_id).get('State').get('Status')
 
     def start_containers(self, container_ids):
-        """Start each container in given list of container IDs."""
-
+        """Starts each container in given list of container IDs."""
         for container_id in container_ids:
             self.start_container(container_id)
 
     def start_container(self, container_id):
         """ Start the container with given ID."""
-
         logging.debug(Docker.LOG_TAG + " Starting container " + container_id)
         try:
             self.client.start(container=container_id)
@@ -64,13 +58,10 @@ class Docker:
 
     def execute_command(self, container, command):
         """Executes given command as a shell command in the given container. Returns None is anything goes wrong."""
-
         logging.debug(Docker.LOG_TAG + " CONTAINER: {0} COMMAND: {1}".format(container.get('Id'), command))
-
         if self.start_container(container) is False:
             logging.error("Docker", " Could not start container.")
             return None
-
         try:
             exec_instance = self.client.exec_create(container.get('Id'), "/bin/bash -c \"" + command + "\"")
             response = self.client.exec_start(exec_instance)
@@ -81,7 +72,6 @@ class Docker:
 
     def build_image(self, dockerfile):
         """ Build image from given Dockerfile object and return ID of the image created. """
-
         print("Building image...")
         image_tag = Constants.DOCKER_IMAGE_PREFIX + "{0}".format(self.build_count)
         last_line = ""
@@ -93,6 +83,7 @@ class Docker:
 
             # Return image ID. It's a hack around the fact that docker-py's build image command doesn't return an image
             # id.
+            # TODO add test for this.
             tokens = last_line.split(" ")
             image_id = tokens[3][:Constants.DOKCER_IMAGE_ID_LENGTH]
             print("Image ID: {0}".format(image_id))
@@ -103,7 +94,6 @@ class Docker:
 
     def image_exists(self, image_id):
         """Check if image with given ID exists locally."""
-
         for image in self.client.images():
             some_id = image["Id"]
             if image_id in some_id[:(Constants.DOCKER_PY_IMAGE_ID_PREFIX_LENGTH + Constants.DOKCER_IMAGE_ID_LENGTH)]:
