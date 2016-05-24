@@ -9,6 +9,10 @@ import multiprocessing
 import json
 import logging
 
+logger = logging.getLogger()
+#logger.setLevel(logging.INFO)  #for Debugging
+logger.setLevel(logging.CRITICAL)
+
 
 ###############################################
 class MOLNSException(Exception):
@@ -1082,7 +1086,7 @@ class MOLNSProvider(MOLNSbase):
         print "Enter configuration for provider {0}:".format(args[0])
         setup_object(provider_obj)
         config.save_object(provider_obj, kind='Provider')
-        #
+
         cls.provider_initialize(args[0], config)
 
 
@@ -1091,6 +1095,7 @@ class MOLNSProvider(MOLNSbase):
         """ Create the MOLNS image and SSH key if necessary."""
         try:
             provider_obj = config.get_object(provider_name, kind='Provider')
+            print "Provider object {0}".format(provider_obj)
         except DatastoreException as e:
             raise MOLNSException("provider not found")
         #

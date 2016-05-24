@@ -1,5 +1,5 @@
 import logging
-
+import re
 from Constants import Constants
 from docker import Client
 from docker.errors import NotFound, NullResource, APIError
@@ -78,18 +78,18 @@ class Docker:
         try:
             for line in self.client.build(fileobj=dockerfile, rm=True, tag=image_tag):
                 print(line)
-                if "errorDetail" in line: raise Docker.ImageBuildException()
+                if "errorDetail" in line:
+                    raise Docker.ImageBuildException()
                 last_line = line
 
             # Return image ID. It's a hack around the fact that docker-py's build image command doesn't return an image
             # id.
-            # TODO add test for this.
-            tokens = last_line.split(" ")
-            image_id = tokens[3][:Constants.DOKCER_IMAGE_ID_LENGTH]
+            exp = r'[a-z0-9]{12}'
+            image_id = re.findall(exp, str(last_line))[0]
             print("Image ID: {0}".format(image_id))
             return image_id
         except (Docker.ImageBuildException, IndexError) as e:
-            print(e)
+            print("ERROR {0}".format(e))
             return None
 
     def image_exists(self, image_id):
@@ -97,6 +97,16 @@ class Docker:
         for image in self.client.images():
             some_id = image["Id"]
             if image_id in some_id[:(Constants.DOCKER_PY_IMAGE_ID_PREFIX_LENGTH + Constants.DOKCER_IMAGE_ID_LENGTH)]:
-                logging.debug("Image exists: " + image)
+                print("Image exists: " + str(image))
                 return True
         return False
+
+    def terminate_containers(self, container_ids):
+        """ Terminates containers with given container ids."""
+        # TODO catch errors.
+        self.stop_containers(container_ids)
+        for container_id in container_ids:
+            terminate_container(container_id)
+
+    def terminate_container(self, container_id):
+        self.client.remove_container(container_id)

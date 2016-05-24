@@ -32,7 +32,11 @@ class DockerProvider(DockerBase):
          {'q': 'Base Ubuntu image to use', 'default': Constants.Constants.DOCKER_DEFAULT_IMAGE,
           'ask': True}),
         ('molns_image_name',
-         {'q': 'Local MOLNs image name to use', 'default': None, 'ask': True})
+         {'q': 'Local MOLNs image name to use', 'default': '', 'ask': True}),
+        ('key_name',
+         {'q': 'Docker Key Pair name', 'default': "docker-default", 'ask': False}),  # Unused.
+        ('group_name',
+         {'q': 'Docker Security Group name', 'default': 'molns', 'ask': True})  # Unused.
     ])
 
     @staticmethod
@@ -68,10 +72,10 @@ class DockerProvider(DockerBase):
         self._connect()
         # create Dockerfile and build container.
         try:
-            logging.debug("Creating Dockerfile...")
+            print("Creating Dockerfile...")
             dockerfile = self._create_dockerfile(installSoftware.InstallSW.get_command_list())
             image_id = self.docker.build_image(dockerfile)
-            logging.debug("Image created.")
+            print("Image created.")
             return image_id
         except Exception as e:
             logging.exception(e)
@@ -88,8 +92,8 @@ class DockerProvider(DockerBase):
     def _create_dockerfile(self, commands):
         """ Create Dockerfile from given commands. """
         dockerfile = '''FROM ubuntu:14.04\nRUN apt-get update\n# Set up base environment.\nRUN apt-get install -yy \ \n
-         software-properties-common \ \n    python-software-properties \ \n    wget \ \n    git \ \n    ipython \n
-         # Add user ubuntu.\nRUN useradd -ms /bin/bash ubuntu\nWORKDIR /home/ubuntu\n'''
+         software-properties-common \ \n    python-software-properties \ \n    wget \ \n    curl \ \n git \ \n
+         ipython \n# Add user ubuntu.\nRUN useradd -ms /bin/bash ubuntu\nWORKDIR /home/ubuntu\n'''
 
         flag = False
 
@@ -145,29 +149,30 @@ class DockerController(DockerBase):
     def _connect(self):
         if self.connected:
             return
-        self.docker = Docker(config=self.provider)
+        self.docker = Docker.Docker()
         self.connected = True
 
-    def get_container_status(self, container):
-        # TODO
-        logger.debug("I am not implemented yet.")
+    def get_container_status(self, container_id):
+        self._connect()
+        self.docker.container_status(container_id)
 
     def start_instance(self, num=1):
         """ Start or resume the controller. """
-        # TODO
-        logger.debug("I am not implemented yet")
+        self._connect()
+        for i in range(num):
+            self.docker.create_container(Constants.Constants.DOCKER_DEFAULT_IMAGE)  # TODO this needs to be MOLNs image.
 
-    def resume_instance(self, instances):
-       # TODO
-       logger.debug("I am not implemented yet")
+    def resume_instance(self, instance_ids):
+        self._connect()
+        self.docker.start_containers(instance_ids)
 
-    def stop_instance(self, instances):
-        # TODO
-        logger.debug("I am not implemented yet")
+    def stop_instance(self, instance_ids):
+        self._connect()
+        self.docker.stop_containers(instance_ids)
 
-    def terminate_instance(self, instances):
-        # TODO
-        logger.debug("I am not implemented yet.")
+    def terminate_instance(self, instance_ids):
+        self._connect()
+        self.docker.terminate_containers(instance_ids)
 
 
 class DockerWorkerGroup(DockerController):
@@ -177,18 +182,13 @@ class DockerWorkerGroup(DockerController):
 
     CONFIG_VARS = OrderedDict([
         ('num_vms',
-            {'q': 'Number of containers in group', 'default': '1', 'ask': True}),
+         {'q': 'Number of containers in group', 'default': '1', 'ask': True}),
     ])
 
     def start_container_group(self, num=1):
-        """ Start worker group containers. """
+        """ Starts worker group containers. """
+        # TODO
 
-        # TODO start given number of containers.
-        logger.debug("I am not implemented yet.")
-        # Look at EC2Provider, line 287.
-        # How to store container references in the datastore?
-        # What should be returned?
-
-    def terminate_container_group(selfself, containers):
-        # TODO remove given containers.
-        logger.debug("I am not implemented yet.")
+    def terminate_container_group(self, containers):
+        """ Terminates container group. """
+        # TODO

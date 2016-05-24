@@ -6,4 +6,5 @@ molns_install.log
 *.tar.gz
 NOTES
 qsubscript
+/dockerfile_*
 \#qsubscript\#
