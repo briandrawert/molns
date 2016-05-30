@@ -153,6 +153,8 @@ class SSHDeploy:
         config["provider_type"] = self.config.type
         config["bucket_name"] = "molns_storage_{1}_{0}".format(self.get_cluster_id(), self.provider_name)
         config["credentials"] = self.config.get_config_credentials()
+        # Only used for OpenStack, Keystone auth API version (2.0 or 3.0)
+        config["auth_version"] = self.config["auth_version"]
         s3_config_file.write(json.dumps(config))
         s3_config_file.close()
         sftp.close()
@@ -190,7 +192,7 @@ class SSHDeploy:
     def _get_ipython_client_file(self):
         sftp = self.ssh.open_sftp()
         engine_file = sftp.file(self.profile_dir_server + 'security/ipcontroller-client.json', 'r')
-        engine_file.prefetch()
+        engine_file.prefetch(file_size=None)
         file_data = engine_file.read()
         engine_file.close()
         sftp.close()
@@ -206,7 +208,7 @@ class SSHDeploy:
     def _get_ipython_engine_file(self):
         sftp = self.ssh.open_sftp()
         engine_file = sftp.file(self.profile_dir_server + 'security/ipcontroller-engine.json', 'r')
-        engine_file.prefetch()
+        engine_file.prefetch(file_size=None)
         file_data = engine_file.read()
         engine_file.close()
         sftp.close()
