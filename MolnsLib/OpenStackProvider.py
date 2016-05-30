@@ -116,8 +116,6 @@ class OpenStackProvider(OpenStackBase):
             raise ProviderException("ssh_key_file '{0}' already exists".format(self.config['key_name']))
 
         self._connect()
-        print self.nova.servers.list()
-
         try:
             new_key = self.nova.keypairs.create(name=self.config['key_name'])
         except Exception,e:
@@ -211,8 +209,8 @@ class OpenStackProvider(OpenStackBase):
         # New version of the nova API uses "project_name" instead of "project_id"
         creds['project_name'] = self.config['nova_project_id']
         # Keystone V3 requires these parameters as well.
-        creds['user_domain_name'] = self.config['os_user_domain_name']
-        creds['project_domain_name'] = self.config['os_project_domain_name']
+        creds['user_domain_name'] = self.config.get('os_user_domain_name')
+        creds['project_domain_name'] = self.config.get('os_project_domain_name')
 
         #print creds
         loader = loading.get_plugin_loader('password')
