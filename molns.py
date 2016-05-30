@@ -432,9 +432,9 @@ class MOLNSController(MOLNSbase):
             inst = controller_obj.start_instance()
         # deploying
         sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
-        sshdeploy.deploy_ipython_controller(inst.ip_address, notebook_password=password)
-        sshdeploy.deploy_molns_webserver(inst.ip_address)
-            #sshdeploy.deploy_stochss(inst.ip_address)
+        #sshdeploy.deploy_ipython_controller(inst.ip_address, notebook_password=password)
+        #sshdeploy.deploy_molns_webserver(inst.ip_address)
+        sshdeploy.deploy_stochss(inst.ip_address)
 
     @classmethod
     def stop_controller(cls, args, config):
@@ -495,7 +495,7 @@ class MOLNSController(MOLNSbase):
     def restart_controller(cls,args,config, password = None):
         """ Restart the MOLNs controller. """
         if len(args) == 0:
-            raise MOLNSException("USAGE: molns controller restart <controller_name> \n Use: \'monlns controller list\' to see current controllers ")
+            raise MOLNSException("USAGE: molns controller restart <controller_name> \n Use: \'molns controller list\' to see current controllers ")
         cls.stop_controller(args,config)
         cls.start_controller(args,config)
         logging.info('{0} controller was restarted'.format(args[0]))
