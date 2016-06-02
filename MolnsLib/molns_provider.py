@@ -6,7 +6,7 @@ class ProviderException(Exception):
     pass
 
 
-class ProviderBase():
+class ProviderBase:
     """ Abstract class. """
     
     STATUS_RUNNING = 'running'

@@ -416,7 +416,8 @@ class MOLNSController(MOLNSbase):
         """ Start the MOLNs controller. """
         logging.debug("MOLNSController.start_controller(args={0})".format(args))
         controller_obj = cls._get_controllerobj(args, config)
-        if controller_obj is None: return
+        if controller_obj is None:
+            return
         # Check if any instances are assigned to this controller
         instance_list = config.get_all_instances(controller_id=controller_obj.id)
         # Check if they are running or stopped (if so, resume them)

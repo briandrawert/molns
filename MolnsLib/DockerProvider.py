@@ -16,10 +16,40 @@ def docker_provider_default_key_name():
 
 
 class DockerBase(ProviderBase):
-    """ Abstract class for Docker. """
+    """ Base class for Docker. """
 
     SSH_KEY_EXTENSION = ".pem"
     PROVIDER_TYPE = 'Docker'
+
+    def _connect(self):
+        if self.connected:
+            return
+        self.docker = Docker.Docker()
+        self.connected = True
+
+    def get_container_status(self, container_id):
+        self._connect()
+        self.docker.container_status(container_id)
+
+    def start_instance(self, num=1):
+        """ Start given number (or 1) containers. """
+        self._connect()
+        started_container_ids = []
+        for i in range(num):
+            started_container_ids.append(self.docker.create_container(self.provider.config["molns_image_name"]))
+        return started_container_ids
+
+    def resume_instance(self, instance_ids):
+        self._connect()
+        self.docker.start_containers(instance_ids)
+
+    def stop_instance(self, instance_ids):
+        self._connect()
+        self.docker.stop_containers(instance_ids)
+
+    def terminate_instance(self, instance_ids):
+        self._connect()
+        self.docker.terminate_containers(instance_ids)
 
 
 class DockerProvider(DockerBase):
@@ -32,7 +62,7 @@ class DockerProvider(DockerBase):
          {'q': 'Base Ubuntu image to use', 'default': Constants.Constants.DOCKER_DEFAULT_IMAGE,
           'ask': True}),
         ('molns_image_name',
-         {'q': 'Local MOLNs image name to use', 'default': '', 'ask': True}),
+         {'q': 'Local MOLNs image ID to use', 'default': '', 'ask': True}),
         ('key_name',
          {'q': 'Docker Key Pair name', 'default': "docker-default", 'ask': False}),  # Unused.
         ('group_name',
@@ -45,19 +75,20 @@ class DockerProvider(DockerBase):
         filename = Constants.Constants.DOCKERFILE_NAME + str(uuid.uuid4())
         return filename
 
-    def _connect(self):
-        if self.connected:
-            return
-        self.docker = Docker.Docker()
-        self.connected = True
-
     def check_ssh_key(self):
         """ Returns true. (Implementation does not use SSH.) """
+        print "reached_check_ssh_key"
         return True
 
     def create_ssh_key(self):
-        """ Returns true. (Implementation does not use SSH.) """
-        return True
+        """ Returns true.  """
+        # TODO
+        print "reached create_ssh_key"
+        ssh_key_dir = os.path.join(self.config_dir, self.name)
+        fp = open(ssh_key_dir, 'w')
+        fp.write("This is a dummy key.")
+        fp.close()
+        os.chmod(ssh_key_dir, 0o600)
 
     def check_security_group(self):
         """ Returns true. (Implementation does not use SSH.) """
@@ -146,34 +177,9 @@ class DockerController(DockerBase):
     CONFIG_VARS = OrderedDict([
     ])
 
-    def _connect(self):
-        if self.connected:
-            return
-        self.docker = Docker.Docker()
-        self.connected = True
-
-    def get_container_status(self, container_id):
+    def get_instance_status(self, instance):
         self._connect()
-        self.docker.container_status(container_id)
-
-    def start_instance(self, num=1):
-        """ Start or resume the controller. """
-        self._connect()
-        for i in range(num):
-            self.docker.create_container(Constants.Constants.DOCKER_DEFAULT_IMAGE)  # TODO this needs to be MOLNs image.
-
-    def resume_instance(self, instance_ids):
-        self._connect()
-        self.docker.start_containers(instance_ids)
-
-    def stop_instance(self, instance_ids):
-        self._connect()
-        self.docker.stop_containers(instance_ids)
-
-    def terminate_instance(self, instance_ids):
-        self._connect()
-        self.docker.terminate_containers(instance_ids)
-
+        return self.docker.container_status(instance)
 
 class DockerWorkerGroup(DockerController):
     """ Provider handle for Docker worker group. """
@@ -184,11 +190,3 @@ class DockerWorkerGroup(DockerController):
         ('num_vms',
          {'q': 'Number of containers in group', 'default': '1', 'ask': True}),
     ])
-
-    def start_container_group(self, num=1):
-        """ Starts worker group containers. """
-        # TODO
-
-    def terminate_container_group(self, containers):
-        """ Terminates container group. """
-        # TODO

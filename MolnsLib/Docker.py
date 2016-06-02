@@ -1,5 +1,6 @@
 import logging
 import re
+from molns_provider import ProviderBase
 from Constants import Constants
 from docker import Client
 from docker.errors import NotFound, NullResource, APIError
@@ -23,10 +24,10 @@ class Docker:
         logging.basicConfig(level=logging.DEBUG)
 
     def create_container(self, image_id=Constants.DOCKER_DEFAULT_IMAGE):
-        """Creates a new container."""
-        logging.debug(Docker.LOG_TAG + " Using image {0}".format(image_id))
+        """Creates a new container. Returns the container ID. """
+        print " Using image {0}".format(image_id)
         container = self.client.create_container(image=image_id, command="/bin/bash", tty=True, detach=True)
-        return container
+        return container.get("Id")
 
     def stop_containers(self, container_ids):
         """Stops given containers."""
@@ -39,7 +40,16 @@ class Docker:
 
     def container_status(self, container_id):
         """Checks if container with given ID running."""
-        return self.client.inspect_container(container_id).get('State').get('Status')
+        status = ProviderBase.STATUS_TERMINATED
+        try:
+            ret_val = str(self.client.inspect_container(container_id).get('State').get('Status'))
+            if ret_val.startswith("running"):
+                status = ProviderBase.STATUS_RUNNING
+            else:
+                status = ProviderBase.STATUS_STOPPED
+        except NotFound:
+            pass
+        return status
 
     def start_containers(self, container_ids):
         """Starts each container in given list of container IDs."""
@@ -93,7 +103,7 @@ class Docker:
             return None
 
     def image_exists(self, image_id):
-        """Check if image with given ID exists locally."""
+        """Checks if an image with the given ID exists locally."""
         for image in self.client.images():
             some_id = image["Id"]
             if image_id in some_id[:(Constants.DOCKER_PY_IMAGE_ID_PREFIX_LENGTH + Constants.DOKCER_IMAGE_ID_LENGTH)]:
@@ -103,10 +113,13 @@ class Docker:
 
     def terminate_containers(self, container_ids):
         """ Terminates containers with given container ids."""
-        # TODO catch errors.
-        self.stop_containers(container_ids)
         for container_id in container_ids:
-            terminate_container(container_id)
+            try:
+                if self.container_status(container_id) == ProviderBase.STATUS_RUNNING:
+                    self.stop_container(container_id)
+                self.terminate_container(container_id)
+            except NotFound:
+                pass
 
     def terminate_container(self, container_id):
         self.client.remove_container(container_id)
