@@ -369,7 +369,7 @@ class SSHDeploy:
             self.exec_command("cd /usr/local/stochss/ && screen -d -m ./run.ubuntu.sh --no_browser -t {0} -a {1}".format(admin_token, ip_address))
 
             print "Staring redirector from port 80"
-            self.exec_multi_command("cd /usr/local/stochss/utils/; screen -d -m sudo python port80redirect.py")
+            self.exec_command("cd /usr/local/stochss/utils/ && screen -d -m sudo python port80redirect.py")
 
             stochss_url = "https://{0}:{1}/".format(ip_address,port)
             print "Waiting for StochSS to become available at {0}".format(stochss_url)
