@@ -1,4 +1,3 @@
-
 import json
 import logging
 import os
@@ -18,7 +17,7 @@ class SSHDeploy:
     '''
     This class is used for deploy IPython
     '''
-    DEFAULT_STOCHSS_PORT = 1443
+    DEFAULT_STOCHSS_PORT = 443
     DEFAULT_INTERNAL_STOCHSS_PORT = 8080
     DEFAULT_GAE_ADMIN_PORT = 8000
     DEFAULT_PRIVATE_NOTEBOOK_PORT = 8090
@@ -29,6 +28,8 @@ class SSHDeploy:
     MAX_NUMBER_SSH_CONNECT_ATTEMPTS = 25
     DEFAULT_SSH_PORT = 22
     DEFAULT_IPCONTROLLER_PORT = 9000
+    STOCHSS_SSL_CERT_FILE = 'stochss-ssl_cert.pem'
+    STOCHSS_SSL_KEY_FILE = 'stochss-ssl_key.pem'
 
     DEFAULT_PYURDME_TEMPDIR="/mnt/pyurdme_tmp"
 
@@ -152,6 +153,8 @@ class SSHDeploy:
         config["provider_type"] = self.config.type
         config["bucket_name"] = "molns_storage_{1}_{0}".format(self.get_cluster_id(), self.provider_name)
         config["credentials"] = self.config.get_config_credentials()
+        # Only used for OpenStack, Keystone auth API version (2.0 or 3.0)
+        config["auth_version"] = self.config["auth_version"]
         s3_config_file.write(json.dumps(config))
         s3_config_file.close()
         sftp.close()
@@ -189,7 +192,7 @@ class SSHDeploy:
     def _get_ipython_client_file(self):
         sftp = self.ssh.open_sftp()
         engine_file = sftp.file(self.profile_dir_server + 'security/ipcontroller-client.json', 'r')
-        engine_file.prefetch()
+        engine_file.prefetch(file_size=None)
         file_data = engine_file.read()
         engine_file.close()
         sftp.close()
@@ -205,7 +208,7 @@ class SSHDeploy:
     def _get_ipython_engine_file(self):
         sftp = self.ssh.open_sftp()
         engine_file = sftp.file(self.profile_dir_server + 'security/ipcontroller-engine.json', 'r')
-        engine_file.prefetch()
+        engine_file.prefetch(file_size=None)
         file_data = engine_file.read()
         engine_file.close()
         sftp.close()
@@ -316,13 +319,31 @@ class SSHDeploy:
         except Exception as e:
             raise SSHDeployException("Could not determine the number of processors on the remote system: {0}".format(e))
 
-    def deploy_stochss(self, ip_address, port=1443):
+    def deploy_stochss(self, ip_address, port=None):
+        if port is None:
+            port = self.DEFAULT_STOCHSS_PORT
         try:
             print "{0}:{1}".format(ip_address, self.ssh_endpoint)
             self.connect(ip_address, self.ssh_endpoint)
-            print "Configure Nginx"
-            (ssl_key, ssl_cert) = self.create_ssl_cert('/home/ubuntu/.nginx_cert/', 'stochss', ip_address)
             sftp = self.ssh.open_sftp()
+            print "Checking for local SSL certificate file '{0}' and '{1}'".format(self.STOCHSS_SSL_CERT_FILE, self.STOCHSS_SSL_KEY_FILE)
+            if os.path.exists(self.STOCHSS_SSL_CERT_FILE) and os.path.exists(self.STOCHSS_SSL_KEY_FILE):
+                print "Copying SSL certificate and key files to server"
+                self.exec_command("mkdir -p '{0}'".format("/home/ubuntu/.nginx_cert/"))
+                ssl_cert = "/home/ubuntu/.nginx_cert/stochss-ssl_cert.pem"
+                with open(self.STOCHSS_SSL_CERT_FILE, 'r') as fd:
+                    cert_file = sftp.file(ssl_cert, 'w+')
+                    cert_file.write(fd.read())
+                    cert_file.close()
+                ssl_key = "/home/ubuntu/.nginx_cert/stochss-ssl_key.pem"
+                with open(self.STOCHSS_SSL_KEY_FILE, 'r') as fd:
+                    cert_file = sftp.file(ssl_key, 'w+')
+                    cert_file.write(fd.read())
+                    cert_file.close()
+            else:
+                print "Creating self-signed SSL certificate on server"
+                (ssl_key, ssl_cert) = self.create_ssl_cert('/home/ubuntu/.nginx_cert/', 'stochss', ip_address)
+            print "Configure Nginx"
             with open(os.path.dirname(os.path.abspath(__file__))+os.sep+'..'+os.sep+'templates'+os.sep+'nginx.conf') as fd:
                 web_file = sftp.file("/tmp/nginx.conf", 'w+')
                 buff = fd.read()
