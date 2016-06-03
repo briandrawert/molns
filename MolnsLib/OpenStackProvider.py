@@ -116,8 +116,6 @@ class OpenStackProvider(OpenStackBase):
             raise ProviderException("ssh_key_file '{0}' already exists".format(self.config['key_name']))
 
         self._connect()
-        print self.nova.servers.list()
-
         try:
             new_key = self.nova.keypairs.create(name=self.config['key_name'])
         except Exception,e:
@@ -211,8 +209,8 @@ class OpenStackProvider(OpenStackBase):
         # New version of the nova API uses "project_name" instead of "project_id"
         creds['project_name'] = self.config['nova_project_id']
         # Keystone V3 requires these parameters as well.
-        creds['user_domain_name'] = self.config['os_user_domain_name']
-        creds['project_domain_name'] = self.config['os_project_domain_name']
+        creds['user_domain_name'] = self.config.get('os_user_domain_name')
+        creds['project_domain_name'] = self.config.get('os_project_domain_name')
 
         #print creds
         loader = loading.get_plugin_loader('password')
@@ -387,6 +385,38 @@ class OpenStackProvider(OpenStackBase):
        # Try to attach a floating IP to the controller
         logging.info("Attaching floating ip to the server...")
         try:
+            for arg in sys.argv:
+                if arg.startswith('--ip='):
+                    needed_ip = arg.replace('--ip=','')
+                    logging.debug("Requested specific floating IP {0}".format(needed_ip))
+                    ip_list =  self.nova.floating_ips.list()
+                    for ip_inst in ip_list:
+                        logging.debug(ip_inst)
+                        if ip_inst.ip == needed_ip:
+                            if ip_inst.instance_id is not None:
+                                raise ProviderException("Requested floating IP is already allocated")
+                            logging.debug("AVAILABLE, attempting to attach to instance")
+                            instance.add_floating_ip(ip_inst)
+                            logging.debug("ip={0}".format(ip_inst.ip))
+                            return ip_inst.ip
+        except Exception as e:
+            raise ProviderException("Failed to attached specified floating IP\n{0}".format(e))
+        
+        try:
+            logging.debug("listing available floating IPs")
+            ip_list =  self.nova.floating_ips.list()
+            for ip_inst in ip_list:
+                logging.debug(ip_inst)
+                if ip_inst.instance_id is None:
+                    logging.debug("AVAILABLE, attempting to attach to instance")
+                    instance.add_floating_ip(ip_inst)
+                    logging.debug("ip={0}".format(ip_inst.ip))
+                    return ip_inst.ip
+        except Exception as e:
+            raise ProviderException("Failed to list floating IP\n{0}".format(e))
+        
+        try:
+            logging.debug("Allocating new floating IP from pool")
             floating_ip = self.nova.floating_ips.create(self.config['floating_ip_pool'])
             instance.add_floating_ip(floating_ip)
             logging.debug("ip={0}".format(floating_ip.ip))
@@ -440,13 +470,13 @@ class OpenStackController(OpenStackBase):
         if isinstance(instances, list):
             pids = []
             for instance in instances:
-                self.provider._delete_floating_ip(instances.ip_address)
+                #self.provider._delete_floating_ip(instances.ip_address)
                 self.datastore.delete_instance(instances)
                 pids.append(instance.provider_instance_identifier)
             self.provider._terminate_instances(pids)
         else:
             self.provider._terminate_instances([instances.provider_instance_identifier])
-            self.provider._delete_floating_ip(instances.ip_address)
+            #self.provider._delete_floating_ip(instances.ip_address)
             self.datastore.delete_instance(instances)
     
     def get_instance_status(self, instance):

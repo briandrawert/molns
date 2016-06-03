@@ -495,7 +495,7 @@ class MOLNSController(MOLNSbase):
     def restart_controller(cls,args,config, password = None):
         """ Restart the MOLNs controller. """
         if len(args) == 0:
-            raise MOLNSException("USAGE: molns controller restart <controller_name> \n Use: \'monlns controller list\' to see current controllers ")
+            raise MOLNSException("USAGE: molns controller restart <controller_name> \n Use: \'molns controller list\' to see current controllers ")
         cls.stop_controller(args,config)
         cls.start_controller(args,config)
         logging.info('{0} controller was restarted'.format(args[0]))
