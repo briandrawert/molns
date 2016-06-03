@@ -442,8 +442,8 @@ class MOLNSController(MOLNSbase):
             inst = controller_obj.start_instance()
         # deploying
         sshdeploy = SSHDeploy(controller_obj.ssh, config=controller_obj.provider, config_dir=config.config_dir)
-        sshdeploy.deploy_ipython_controller(inst.ip_address, notebook_password=password)
-        sshdeploy.deploy_molns_webserver(inst.ip_address)
+        sshdeploy.deploy_ipython_controller(inst, notebook_password=password)
+        sshdeploy.deploy_molns_webserver(inst)
         #sshdeploy.deploy_stochss(inst.ip_address, port=443)
 
     @classmethod
@@ -1371,6 +1371,8 @@ class SubCommand():
         raise CommandException("command not found")
 
 ###############################################
+
+
 class Command():
     def __init__(self, command, args_defs={}, description=None, function=None):
         self.command = command
@@ -1382,6 +1384,7 @@ class Command():
             self.description = function.__doc__.strip()
         else:
             self.description = description
+
     def __str__(self):
         ret = self.command+" "
         for k,v in self.args_defs.iteritems():

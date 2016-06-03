@@ -48,8 +48,8 @@ class SSH:
     def open_sftp(self):
         return self.ssh.open_sftp()
 
-    def connect(self, hostname, port, username=None, key_filename=None):
-        return self.ssh.connect(hostname, port, username, key_filename=key_filename)
+    def connect(self, instance, port, username=None, key_filename=None):
+        return self.ssh.connect(instance.ip_address, port, username, key_filename=key_filename)
 
     def close(self):
         self.ssh.close()

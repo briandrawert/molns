@@ -27,24 +27,46 @@ class DockerBase(ProviderBase):
         self.docker = Docker.Docker()
         self.ssh = DockerSSH(self.docker)
 
-    def get_container_status(self, container_id):
+    def _get_container_status(self, container_id):
         self.docker.container_status(container_id)
 
     def start_instance(self, num=1):
         """ Start given number (or 1) containers. """
-        started_container_ids = []
+        started_containers = []
         for i in range(num):
-            started_container_ids.append(self.docker.create_container(self.provider.config["molns_image_name"]))
-        # TODO Store these IDs somewhere.
-        return started_container_ids
+            container_id = self.docker.create_container(self.provider.config["molns_image_name"])
+            stored_container = self.datastore.get_instance(provider_instance_identifier=container_id, ip_address=None
+                                                              , provider_id=self.provider.id, controller_id=self.id)
+            started_containers.append(stored_container)
+        if num == 1:
+            return started_containers[0]
+        return started_containers
 
-    def resume_instance(self, instance_ids):
+    def resume_instance(self, instances):
+        instance_ids = []
+        if isinstance(instances, list):
+            for instance in instances:
+                instance_ids.append(instance.provider_instance_identifier)
+        else:
+            instance_ids.append(instances.provider_instance_identifier)
         self.docker.start_containers(instance_ids)
 
-    def stop_instance(self, instance_ids):
+    def stop_instance(self, instances):
+        instance_ids = []
+        if isinstance(instances, list):
+            for instance in instances:
+                instance_ids.append(instance.provider_instance_identifier)
+        else:
+            instance_ids.append(instances.provider_instance_identifier)
         self.docker.stop_containers(instance_ids)
 
-    def terminate_instance(self, instance_ids):
+    def terminate_instance(self, instances):
+        instance_ids = []
+        if isinstance(instances, list):
+            for instance in instances:
+                instance_ids.append(instance.provider_instance_identifier)
+        else:
+            instance_ids.append(instances.provider_instance_identifier)
         self.docker.terminate_containers(instance_ids)
 
     def exec_command(self, container_id, command):
@@ -65,7 +87,9 @@ class DockerProvider(DockerBase):
         ('key_name',
          {'q': 'Docker Key Pair name', 'default': "docker-default", 'ask': False}),  # Unused.
         ('group_name',
-         {'q': 'Docker Security Group name', 'default': 'molns', 'ask': True})  # Unused.
+         {'q': 'Docker Security Group name', 'default': 'molns', 'ask': True}),  # Unused.
+        ('login_username',
+         {'default': 'ubuntu', 'ask': False})  # Unused.
     ])
 
     @staticmethod
@@ -121,7 +145,8 @@ class DockerProvider(DockerBase):
         """ Create Dockerfile from given commands. """
         dockerfile = '''FROM ubuntu:14.04\nRUN apt-get update\n# Set up base environment.\nRUN apt-get install -yy \ \n
          software-properties-common \ \n    python-software-properties \ \n    wget \ \n    curl \ \n git \ \n
-         ipython \n# Add user ubuntu.\nRUN useradd -ms /bin/bash ubuntu\nWORKDIR /home/ubuntu\n'''
+         ipython \n apt-get -y install sudo \n# Add user ubuntu.\nRUN useradd -ms /bin/bash ubuntu && echo "ubuntu ALL=
+         (ALL) NOPASSWD: ALL" >> /etc/sudoers\nWORKDIR /home/ubuntu\n'''
 
         flag = False
 
@@ -175,7 +200,7 @@ class DockerController(DockerBase):
     ])
 
     def get_instance_status(self, instance):
-        return self.docker.container_status(instance)
+        return self.docker.container_status(instance.provider_instance_identifier)
 
 
 class DockerWorkerGroup(DockerController):
@@ -187,15 +212,15 @@ class DockerWorkerGroup(DockerController):
         ('num_vms',
          {'q': 'Number of containers in group', 'default': '1', 'ask': True}),
     ])
-
-
-class DockerLocal(DockerBase):
-    """ Provides a handle for a local Docker based ipython server. """
-
-    OBJ_NAME = 'DockerLocal'
-
-    CONFIG_VARS = OrderedDict([
-    ])
-
-    def get_instance_status(self, instance):
-        return self.docker.container_status(instance)
+#
+#
+# class DockerLocal(DockerBase):
+#     """ Provides a handle for a local Docker based ipython server. """
+#
+#     OBJ_NAME = 'DockerLocal'
+#
+#     CONFIG_VARS = OrderedDict([
+#     ])
+#
+#     def get_instance_status(self, instance):
+#         return self.docker.container_status(instance)

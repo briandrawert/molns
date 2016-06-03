@@ -45,8 +45,8 @@ class SSHDeploy:
         self.endpoint = self.DEFAULT_PRIVATE_NOTEBOOK_PORT
         self.ssh_endpoint = self.DEFAULT_SSH_PORT
         self.keyfile = config.sshkeyfilename()
-        if not isinstance(ssh, SSH) or not isinstance(ssh, DockerSSH):
-            raise SSHDeployException("Received incorrect SSH object.")
+        if not (isinstance(ssh, SSH) or isinstance(ssh, DockerSSH)):
+            raise SSHDeployException("SSH object invalid.")
         self.ssh = ssh
         self.profile = 'default'
         self.profile_dir = "/home/%s/.ipython/profile_default/" % (self.username)
@@ -233,22 +233,28 @@ class SSHDeploy:
             print "FAILED......\t{0}\t{1}".format(command, e)
             raise e
             
-    def connect(self, hostname, port):
-        print "Connecting to {0}:{1} keyfile={2}".format(hostname, port, self.keyfile)
+    def connect(self, instance, port=None):
+        if port is None:
+            port = self.ssh_endpoint
+        print "Connecting to {0}:{1} keyfile={2}".format(instance.ip_address, port, self.keyfile)
         for i in range(self.MAX_NUMBER_SSH_CONNECT_ATTEMPTS):
             try:
-                self.ssh.connect(hostname, port, username=self.username,
+                self.ssh.connect(instance, self.ssh_endpoint, username=self.username,
                                  key_filename=self.keyfile)
-                print "SSH connection established"
+                if not isinstance(self.ssh, DockerSSH):
+                    print "SSH connection established"
+                else:
+                    print "Ready to execute commands in local container."
                 return
             except Exception as e:
                 print "Retry in {0} seconds...\t\t{1}".format(self.SSH_CONNECT_WAITTIME, e)
                 time.sleep(self.SSH_CONNECT_WAITTIME)
-        raise SSHDeployException("ssh connect Failed!!!\t{0}:{1}".format(hostname, self.ssh_endpoint))
+        raise SSHDeployException("ssh connect Failed!!!\t{0}:{1}".format(instance.ip_address, self.ssh_endpoint))
 
-    def deploy_molns_webserver(self, ip_address):
+    def deploy_molns_webserver(self, instance):
+        ip_address = instance.ip_address
         try:
-            self.connect(ip_address, self.ssh_endpoint)
+            self.connect(instance, self.ssh_endpoint)
             self.ssh.exec_command("sudo rm -rf /usr/local/molns_webroot")
             self.ssh.exec_command("sudo mkdir -p /usr/local/molns_webroot")
             self.ssh.exec_command("sudo chown ubuntu /usr/local/molns_webroot")
@@ -332,12 +338,13 @@ class SSHDeploy:
             print "StochSS launch failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
             raise sys.exc_info()[1], None, sys.exc_info()[2]
 
-    def deploy_ipython_controller(self, ip_address, notebook_password=None):
+    def deploy_ipython_controller(self, instance, notebook_password=None):
+        ip_address = instance.ip_address
         controller_hostname =  ''
         engine_file_data = ''
         try:
             print "{0}:{1}".format(ip_address, self.ssh_endpoint)
-            self.connect(ip_address, self.ssh_endpoint)
+            self.connect(instance, self.ssh_endpoint)
             
             # Set up the symlink to local scratch space
             self.ssh.exec_command("sudo mkdir -p /mnt/molnsarea")
