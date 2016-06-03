@@ -5,6 +5,7 @@ import os
 import Docker
 import installSoftware
 import tempfile
+from DockerSSH import DockerSSH
 
 from collections import OrderedDict
 from molns_provider import ProviderBase, ProviderException
@@ -21,35 +22,33 @@ class DockerBase(ProviderBase):
     SSH_KEY_EXTENSION = ".pem"
     PROVIDER_TYPE = 'Docker'
 
-    def _connect(self):
-        if self.connected:
-            return
+    def __init__(self, name, config=None, config_dir=None, **kwargs):
+        ProviderBase.__init__(self, name, config, config_dir, **kwargs)
         self.docker = Docker.Docker()
-        self.connected = True
+        self.ssh = DockerSSH(self.docker)
 
     def get_container_status(self, container_id):
-        self._connect()
         self.docker.container_status(container_id)
 
     def start_instance(self, num=1):
         """ Start given number (or 1) containers. """
-        self._connect()
         started_container_ids = []
         for i in range(num):
             started_container_ids.append(self.docker.create_container(self.provider.config["molns_image_name"]))
+        # TODO Store these IDs somewhere.
         return started_container_ids
 
     def resume_instance(self, instance_ids):
-        self._connect()
         self.docker.start_containers(instance_ids)
 
     def stop_instance(self, instance_ids):
-        self._connect()
         self.docker.stop_containers(instance_ids)
 
     def terminate_instance(self, instance_ids):
-        self._connect()
         self.docker.terminate_containers(instance_ids)
+
+    def exec_command(self, container_id, command):
+        self.docker.execute_command(container_id, command)
 
 
 class DockerProvider(DockerBase):
@@ -100,7 +99,6 @@ class DockerProvider(DockerBase):
 
     def create_molns_image(self):
         """ Create a molns image, save it on localhost and return ID of created image. """
-        self._connect()
         # create Dockerfile and build container.
         try:
             print("Creating Dockerfile...")
@@ -116,7 +114,6 @@ class DockerProvider(DockerBase):
         """ Check if the molns image exists. """
         if 'molns_image_name' in self.config and self.config['molns_image_name'] is not None and self.config[
             'molns_image_name'] != '':
-            self._connect()
             return self.docker.image_exists(self.config['molns_image_name'])
         return False
 
@@ -178,8 +175,8 @@ class DockerController(DockerBase):
     ])
 
     def get_instance_status(self, instance):
-        self._connect()
         return self.docker.container_status(instance)
+
 
 class DockerWorkerGroup(DockerController):
     """ Provider handle for Docker worker group. """
@@ -190,3 +187,15 @@ class DockerWorkerGroup(DockerController):
         ('num_vms',
          {'q': 'Number of containers in group', 'default': '1', 'ask': True}),
     ])
+
+
+class DockerLocal(DockerBase):
+    """ Provides a handle for a local Docker based ipython server. """
+
+    OBJ_NAME = 'DockerLocal'
+
+    CONFIG_VARS = OrderedDict([
+    ])
+
+    def get_instance_status(self, instance):
+        return self.docker.container_status(instance)

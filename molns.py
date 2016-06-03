@@ -88,6 +88,7 @@ class MOLNSbase():
             raise MOLNSException("controller '{0}' is not initialized, use 'molns controller setup {0}' to initialize the controller.".format(controller_name))
         return controller_obj
 
+
 class MOLNSController(MOLNSbase):
     @classmethod
     def controller_export(cls, args, config):
@@ -356,7 +357,9 @@ class MOLNSController(MOLNSbase):
         logging.debug("MOLNSController.status_controller(args={0})".format(args))
         if len(args) > 0:
             controller_obj = cls._get_controllerobj(args, config)
-            if controller_obj is None: return
+            if controller_obj is None:
+                return
+
             # Check if any instances are assigned to this controller
             instance_list = config.get_controller_instances(controller_id=controller_obj.id)
             table_data = []
@@ -438,7 +441,7 @@ class MOLNSController(MOLNSbase):
             print "Starting new controller"
             inst = controller_obj.start_instance()
         # deploying
-        sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
+        sshdeploy = SSHDeploy(controller_obj.ssh, config=controller_obj.provider, config_dir=config.config_dir)
         sshdeploy.deploy_ipython_controller(inst.ip_address, notebook_password=password)
         sshdeploy.deploy_molns_webserver(inst.ip_address)
         #sshdeploy.deploy_stochss(inst.ip_address, port=443)
@@ -466,19 +469,19 @@ class MOLNSController(MOLNSbase):
                     if status == worker_obj.STATUS_RUNNING or status == worker_obj.STATUS_STOPPED:
                         print "Terminating worker '{1}' running at {0}".format(i.ip_address, worker_name)
                         worker_obj.terminate_instance(i)
-
         else:
             print "No instance running for this controller"
-
 
     @classmethod
     def terminate_controller(cls, args, config):
         """ Terminate the head node of a MOLNs controller. """
         logging.debug("MOLNSController.terminate_controller(args={0})".format(args))
         controller_obj = cls._get_controllerobj(args, config)
-        if controller_obj is None: return
+        if controller_obj is None:
+            return
         instance_list = config.get_all_instances(controller_id=controller_obj.id)
         logging.debug("\tinstance_list={0}".format([str(i) for i in instance_list]))
+        print("\tinstance_list={0}".format([str(i) for i in instance_list]))
         # Check if they are running or stopped
         if len(instance_list) > 0:
             for i in instance_list:
@@ -494,8 +497,6 @@ class MOLNSController(MOLNSbase):
                     if status == worker_obj.STATUS_RUNNING or status == worker_obj.STATUS_STOPPED:
                         print "Terminating worker '{1}' running at {0}".format(i.ip_address, worker_name)
                         worker_obj.terminate_instance(i)
-
-
         else:
             print "No instance running for this controller"
 
@@ -544,7 +545,7 @@ class MOLNSWorkerGroup(MOLNSbase):
         """ Export the configuration of a worker group. """
         if len(args) < 1:
             raise MOLNSException("USAGE: molns worker export name [Filename]\n"\
-                "\tExport the data from the worker group with the given name.")
+                                 "\tExport the data from the worker group with the given name.")
         worker_name = args[0]
         if len(args) > 1:
             filename = args[1]
@@ -1242,6 +1243,20 @@ class MOLNSInstances(MOLNSbase):
         else:
             print "No instance found"
 
+##############################################################################################
+
+
+class MolnsLocal(MOLNSbase):
+
+    @classmethod
+    def setup_local(cls):
+        #TODO
+        pass
+
+    @classmethod
+    def start_local(cls):
+        # TODO
+        pass
 
 ##############################################################################################
 ##############################################################################################

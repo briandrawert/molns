@@ -66,14 +66,14 @@ class Docker:
             return False
         return True
 
-    def execute_command(self, container, command):
+    def execute_command(self, container_id, command):
         """Executes given command as a shell command in the given container. Returns None is anything goes wrong."""
-        logging.debug(Docker.LOG_TAG + " CONTAINER: {0} COMMAND: {1}".format(container.get('Id'), command))
-        if self.start_container(container) is False:
-            logging.error("Docker", " Could not start container.")
+        print("CONTAINER: {0} COMMAND: {1}".format(container_id, command))
+        if self.start_container(container_id) is False:
+            print(" Could not start container.")
             return None
         try:
-            exec_instance = self.client.exec_create(container.get('Id'), "/bin/bash -c \"" + command + "\"")
+            exec_instance = self.client.exec_create(container_id, "/bin/bash -c \"" + command + "\"")
             response = self.client.exec_start(exec_instance)
             return [self.client.exec_inspect(exec_instance), response]
         except (NotFound, APIError) as e:

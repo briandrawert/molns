@@ -1,5 +1,6 @@
 import os
 import collections
+from SSH import SSH
 
 
 class ProviderException(Exception):
@@ -38,6 +39,7 @@ class ProviderBase:
                 self.config[k] = v
         for k,v in kwargs.iteritems():
             self.__dict__[k] = v
+        self.ssh = SSH()
 
     def __getitem__(self, key):
         if key not in self.CONFIG_VARS.keys():
