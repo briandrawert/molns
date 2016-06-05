@@ -92,6 +92,9 @@ class DockerProvider(DockerBase):
          {'default': 'ubuntu', 'ask': False})  # Unused.
     ])
 
+    def get_config_credentials(self):
+        None
+
     @staticmethod
     def __get_new_dockerfile_name():
         import uuid

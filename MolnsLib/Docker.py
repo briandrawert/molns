@@ -123,3 +123,13 @@ class Docker:
 
     def terminate_container(self, container_id):
         self.client.remove_container(container_id)
+
+    def put_archive(self, container_id, tar_file_bytes, target_path_in_container):
+        if self.start_container(container_id) is False:
+            print("ERROR Could not start container.")
+            return
+        print("Unpacking archive to: " + target_path_in_container)
+        if self.client.put_archive(container_id, target_path_in_container, tar_file_bytes):
+            print "Copied file successfully."
+        else:
+            print "Failed to copy."

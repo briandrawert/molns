@@ -96,12 +96,12 @@ class SSHDeploy:
         else:
             passwd = notebook_password
         try:
-            sha1pass_out = self.ssh.exec_command(sha1cmd % passwd, verbose=False)
+            sha1pass_out = self.ssh.exec_command(sha1cmd % passwd, verbose=False)  # TODO What's being returned here?
+            print "YEP"
             sha1pass = sha1pass_out[0].strip()
         except Exception as e:
             print "Failed: {0}\t{1}:{2}".format(e, hostname, self.ssh_endpoint)
             raise e
-        
         sftp = self.ssh.open_sftp()
         notebook_config_file = sftp.file(remote_file_name, 'w+')
         notebook_config_file.write('\n'.join([ 
