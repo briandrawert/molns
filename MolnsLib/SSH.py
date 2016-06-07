@@ -45,6 +45,19 @@ class SSH:
                 print "FAILED......\t{0}\t{1}".format(command, e)
             raise SSHException("{0}\t{1}".format(command, e))
 
+    def exec_multi_command(self, command, next_command):
+        try:
+            stdin, stdout, stderr = self.ssh.exec_command(command)
+            stdin.write(next_command)
+            stdin.flush()
+            status = stdout.channel.recv_exit_status()
+            if status != 0:
+                raise paramiko.SSHException("Exit Code: {0}\tSTDOUT: {1}\tSTDERR: {2}\n\n".format(status, stdout.read(),
+                                                                                                  stderr.read()))
+        except paramiko.SSHException as e:
+            print "FAILED......\t{0}\t{1}".format(command, e)
+            raise e
+
     def open_sftp(self):
         return self.ssh.open_sftp()
 

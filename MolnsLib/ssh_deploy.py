@@ -96,8 +96,7 @@ class SSHDeploy:
         else:
             passwd = notebook_password
         try:
-            sha1pass_out = self.ssh.exec_command(sha1cmd % passwd, verbose=False)  # TODO What's being returned here?
-            print "YEP"
+            sha1pass_out = self.ssh.exec_command(sha1cmd % passwd, verbose=False)
             sha1pass = sha1pass_out[0].strip()
         except Exception as e:
             print "Failed: {0}\t{1}:{2}".format(e, hostname, self.ssh_endpoint)
@@ -219,19 +218,6 @@ class SSHDeploy:
     def exec_command_list_switch(self, command_list):
         for command in command_list:
             self.ssh.exec_command(command)
-
-    def exec_multi_command(self, command, next_command):
-        try:
-            stdin, stdout, stderr = self.ssh.exec_command(command)
-            stdin.write(next_command)
-            stdin.flush()
-            status = stdout.channel.recv_exit_status()
-            if status != 0:
-                raise paramiko.SSHException("Exit Code: {0}\tSTDOUT: {1}\tSTDERR: {2}\n\n".format(status, stdout.read(),
-                                                                                                  stderr.read()))
-        except paramiko.SSHException as e:
-            print "FAILED......\t{0}\t{1}".format(command, e)
-            raise e
             
     def connect(self, instance, port=None):
         if port is None:
@@ -259,7 +245,7 @@ class SSHDeploy:
             self.ssh.exec_command("sudo mkdir -p /usr/local/molns_webroot")
             self.ssh.exec_command("sudo chown ubuntu /usr/local/molns_webroot")
             self.ssh.exec_command("git clone https://github.com/Molns/MOLNS_web_landing_page.git /usr/local/molns_webroot")
-            self.exec_multi_command("cd /usr/local/molns_webroot; python -m SimpleHTTPServer {0} > ~/.molns_webserver.log 2>&1 &".format(self.DEFAULT_PRIVATE_WEBSERVER_PORT), '\n')
+            self.ssh.exec_multi_command("cd /usr/local/molns_webroot; python -m SimpleHTTPServer {0} > ~/.molns_webserver.log 2>&1 &".format(self.DEFAULT_PRIVATE_WEBSERVER_PORT), '\n')
             self.ssh.exec_command("sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport {0} -j REDIRECT --to-port {1}".format(self.DEFAULT_PUBLIC_WEBSERVER_PORT, self.DEFAULT_PRIVATE_WEBSERVER_PORT))
             self.ssh.close()
             print "Deploying MOLNs webserver"

@@ -1,6 +1,7 @@
 import StringIO
 import tarfile
 import os
+import re
 
 
 class DockerSSH(object):
@@ -9,7 +10,13 @@ class DockerSSH(object):
         self.container_id = None
 
     def exec_command(self, command, verbose=True):
-        self.docker.execute_command(self.container_id, command)
+        cmd = re.sub("\"", "\\\"", command)  # Escape all occurrences of ".
+        ret_val, response = self.docker.execute_command(self.container_id, cmd)
+        print "RESPONSE: " + response
+        return response
+
+    def exec_multi_command(self, command, for_compatibility):
+        return self.exec_command(command)
 
     def open_sftp(self):
         return MockSFTP(self.docker, self.container_id)
@@ -64,9 +71,10 @@ class MockSFTPFile:
         tar.close()  # Create temporary tar file to be copied into container.
 
         path_to_file = os.path.dirname(self.filename)
-        create_path_to_file_command = "sudo mkdir -p {0}".format(path_to_file)
-        self.docker.execute_command(self.container_id, create_path_to_file_command)
+        # create_path_to_file_command = "sudo mkdir -p {0}".format(path_to_file)
+        # self.docker.execute_command(self.container_id, create_path_to_file_command)
+        print "PATH TO FILE: " + path_to_file
         with open(temp_tar, mode='rb') as f:
             tar_file_bytes = f.read()
-        self.docker.put_archive(self.container_id, tar_file_bytes, "/home/ubuntu/"+path_to_file)
+        self.docker.put_archive(self.container_id, tar_file_bytes, path_to_file)
         os.remove(temp_tar)  # Remove temporary tar file.

@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 from molns_provider import ProviderBase
 from Constants import Constants
 from docker import Client
@@ -24,9 +25,11 @@ class Docker:
         logging.basicConfig(level=logging.DEBUG)
 
     def create_container(self, image_id=Constants.DOCKER_DEFAULT_IMAGE):
-        """Creates a new container. Returns the container ID. """
-        print " Using image {0}".format(image_id)
-        container = self.client.create_container(image=image_id, command="/bin/bash", tty=True, detach=True)
+        """Creates a new container with elevated privileges. Returns the container ID. """
+        print "Using image {0}".format(image_id)
+        hc = self.client.create_host_config(privileged=True)
+        container = self.client.create_container(image=image_id, command="/bin/bash", tty=True, detach=True,
+                                                 host_config=hc)
         return container.get("Id")
 
     def stop_containers(self, container_ids):
@@ -68,12 +71,13 @@ class Docker:
 
     def execute_command(self, container_id, command):
         """Executes given command as a shell command in the given container. Returns None is anything goes wrong."""
-        print("CONTAINER: {0} COMMAND: {1}".format(container_id, command))
+        run_command = "/bin/bash -c \"" + command + "\""
+        print("CONTAINER: {0} COMMAND: {1}".format(container_id, run_command))
         if self.start_container(container_id) is False:
-            print(" Could not start container.")
+            print("Could not start container.")
             return None
         try:
-            exec_instance = self.client.exec_create(container_id, "/bin/bash -c \"" + command + "\"")
+            exec_instance = self.client.exec_create(container_id, run_command)
             response = self.client.exec_start(exec_instance)
             return [self.client.exec_inspect(exec_instance), response]
         except (NotFound, APIError) as e:
@@ -128,8 +132,26 @@ class Docker:
         if self.start_container(container_id) is False:
             print("ERROR Could not start container.")
             return
+
+        # Prepend file path with /home/ubuntu/. Very hack-y. Should be refined.
+        if not target_path_in_container.startswith("/home/ubuntu/"):
+            target_path_in_container = "/home/ubuntu/" + target_path_in_container
+
         print("Unpacking archive to: " + target_path_in_container)
         if self.client.put_archive(container_id, target_path_in_container, tar_file_bytes):
             print "Copied file successfully."
         else:
             print "Failed to copy."
+
+    def get_container_ip_address(self, container_id):
+        self.start_container(container_id)
+        ins = self.client.inspect_container(container_id)
+        print "Waiting for an IP Address..."
+        ip_address = str(ins.get("NetworkSettings").get("IPAddress"))
+        while True:
+            ip_address = str(ins.get("NetworkSettings").get("IPAddress"))
+            time.sleep(3)
+            if ip_address.startswith("1") is True:
+                break
+        print "IP ADDRESS: " + ip_address
+        return ip_address

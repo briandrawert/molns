@@ -35,8 +35,9 @@ class DockerBase(ProviderBase):
         started_containers = []
         for i in range(num):
             container_id = self.docker.create_container(self.provider.config["molns_image_name"])
-            stored_container = self.datastore.get_instance(provider_instance_identifier=container_id, ip_address=None
-                                                              , provider_id=self.provider.id, controller_id=self.id)
+            stored_container = self.datastore.get_instance(provider_instance_identifier=container_id,
+                                                           ip_address=self.docker.get_container_ip_address(container_id)
+                                                           , provider_id=self.provider.id, controller_id=self.id)
             started_containers.append(stored_container)
         if num == 1:
             return started_containers[0]
@@ -148,8 +149,8 @@ class DockerProvider(DockerBase):
         """ Create Dockerfile from given commands. """
         dockerfile = '''FROM ubuntu:14.04\nRUN apt-get update\n# Set up base environment.\nRUN apt-get install -yy \ \n
          software-properties-common \ \n    python-software-properties \ \n    wget \ \n    curl \ \n git \ \n
-         ipython \n apt-get -y install sudo \n# Add user ubuntu.\nRUN useradd -ms /bin/bash ubuntu && echo "ubuntu ALL=
-         (ALL) NOPASSWD: ALL" >> /etc/sudoers\nWORKDIR /home/ubuntu\n'''
+         ipython \ \n sudo \ \n screen \ \n iptables \n# Add user ubuntu.\nRUN useradd -ms /bin/bash ubuntu\n
+         RUN echo "ubuntu ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers\nWORKDIR /home/ubuntu\n'''
 
         flag = False
 
@@ -215,15 +216,3 @@ class DockerWorkerGroup(DockerController):
         ('num_vms',
          {'q': 'Number of containers in group', 'default': '1', 'ask': True}),
     ])
-#
-#
-# class DockerLocal(DockerBase):
-#     """ Provides a handle for a local Docker based ipython server. """
-#
-#     OBJ_NAME = 'DockerLocal'
-#
-#     CONFIG_VARS = OrderedDict([
-#     ])
-#
-#     def get_instance_status(self, instance):
-#         return self.docker.container_status(instance)
