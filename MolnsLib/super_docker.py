@@ -5,6 +5,7 @@ from molns_provider import ProviderBase
 from Constants import Constants
 from docker import Client
 from docker.errors import NotFound, NullResource, APIError
+import Utils
 
 
 class Docker:
@@ -27,9 +28,14 @@ class Docker:
     def create_container(self, image_id=Constants.DOCKER_DEFAULT_IMAGE):
         """Creates a new container with elevated privileges. Returns the container ID. """
         print "Using image {0}".format(image_id)
-        hc = self.client.create_host_config(privileged=True)
+        hc = self.client.create_host_config(privileged=True, binds={
+            '/home/aviral/Desktop/molns/volume_home_ubuntu/': {
+                'bind': '/home/ubuntu',
+                'mode': 'rw'
+            }
+        })
         container = self.client.create_container(image=image_id, command="/bin/bash", tty=True, detach=True,
-                                                 host_config=hc)
+                                                 host_config=hc, volumes=['/home/ubuntu'])
         return container.get("Id")
 
     def stop_containers(self, container_ids):
@@ -61,11 +67,11 @@ class Docker:
 
     def start_container(self, container_id):
         """ Start the container with given ID."""
-        logging.debug(Docker.LOG_TAG + " Starting container " + container_id)
+        Utils.print_d(Docker.LOG_TAG + " Starting container " + container_id)
         try:
             self.client.start(container=container_id)
         except (NotFound, NullResource) as e:
-            logging.error(Docker.LOG_TAG + " Something went wrong while starting container.", e)
+            print (Docker.LOG_TAG + " Something went wrong while starting container.", e)
             return False
         return True
 
@@ -81,7 +87,7 @@ class Docker:
             response = self.client.exec_start(exec_instance)
             return [self.client.exec_inspect(exec_instance), response]
         except (NotFound, APIError) as e:
-            logging.error(Docker.LOG_TAG + " Could not execute command.", e)
+            print (Docker.LOG_TAG + " Could not execute command.", e)
             return None
 
     def build_image(self, dockerfile):
@@ -100,7 +106,7 @@ class Docker:
             # id.
             exp = r'[a-z0-9]{12}'
             image_id = re.findall(exp, str(last_line))[0]
-            print("Image ID: {0}".format(image_id))
+            Utils.print_d("Image ID: {0}".format(image_id))
             return image_id
         except (Docker.ImageBuildException, IndexError) as e:
             print("ERROR {0}".format(e))
@@ -111,7 +117,7 @@ class Docker:
         for image in self.client.images():
             some_id = image["Id"]
             if image_id in some_id[:(Constants.DOCKER_PY_IMAGE_ID_PREFIX_LENGTH + Constants.DOKCER_IMAGE_ID_LENGTH)]:
-                print("Image exists: " + str(image))
+                Utils.print_d("Image exists: " + str(image))
                 return True
         return False
 
@@ -137,21 +143,22 @@ class Docker:
         if not target_path_in_container.startswith("/home/ubuntu/"):
             target_path_in_container = "/home/ubuntu/" + target_path_in_container
 
-        print("Unpacking archive to: " + target_path_in_container)
+        Utils.print_d("Unpacking archive to: " + target_path_in_container)
         if self.client.put_archive(container_id, target_path_in_container, tar_file_bytes):
-            print "Copied file successfully."
+            Utils.print_d("Copied file successfully.")
         else:
-            print "Failed to copy."
+            Utils.print_d("Failed to copy.")
 
     def get_container_ip_address(self, container_id):
         self.start_container(container_id)
         ins = self.client.inspect_container(container_id)
-        print "Waiting for an IP Address..."
+        Utils.print_d("Waiting for an IP Address...")
         ip_address = str(ins.get("NetworkSettings").get("IPAddress"))
         while True:
             ip_address = str(ins.get("NetworkSettings").get("IPAddress"))
-            time.sleep(3)
+            if ip_address == "":
+                time.sleep(3)
             if ip_address.startswith("1") is True:
                 break
-        print "IP ADDRESS: " + ip_address
+        Utils.print_d("IP ADDRESS: " + ip_address)
         return ip_address

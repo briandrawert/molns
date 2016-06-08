@@ -21,3 +21,10 @@ class Logger(object):
 
     def get(self):
         return self._logger
+
+debug_docker = False
+
+
+def print_d(print_this):
+    if debug_docker:
+        print print_this

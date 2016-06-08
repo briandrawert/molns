@@ -1,6 +1,6 @@
 import os
 import collections
-from SSH import SSH
+from ssh import SSH
 
 
 class ProviderException(Exception):

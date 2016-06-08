@@ -1511,6 +1511,10 @@ def parseArgs():
         if arg_list[0].startswith('--debug'):
             print "Turning on Debugging output"
             logger.setLevel(logging.DEBUG)  #for Debugging
+        if arg_list[0].startswith('--docker-debug'):
+            print "Turning on debugging for Docker"
+            import MolnsLib.Utils
+            MolnsLib.Utils.debug_docker = True
         arg_list = arg_list[1:]
 
     if len(arg_list) == 0 or arg_list[0] =='help' or arg_list[0] == '-h':

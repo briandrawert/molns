@@ -1,15 +1,15 @@
 import json
 import logging
 import os
-import paramiko
+import Utils
 import string
 import sys
 import time
 import uuid
 import webbrowser
 import urllib2
-from SSH import SSH
-from DockerSSH import DockerSSH
+from ssh import SSH
+from docker_ssh import DockerSSH
 
 
 class SSHDeployException(Exception):
@@ -97,7 +97,12 @@ class SSHDeploy:
             passwd = notebook_password
         try:
             sha1pass_out = self.ssh.exec_command(sha1cmd % passwd, verbose=False)
-            sha1pass = sha1pass_out[0].strip()
+            if isinstance(sha1pass_out, list):
+                sha1pass = sha1pass_out[0].strip()
+            else:
+                sha1pass = sha1pass_out.strip()
+            Utils.print_d("SHA1PASS_OUT: " + sha1pass_out)
+            Utils.print_d("SHA1PASS: " + sha1pass)
         except Exception as e:
             print "Failed: {0}\t{1}:{2}".format(e, hostname, self.ssh_endpoint)
             raise e
