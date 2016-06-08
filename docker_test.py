@@ -1,9 +1,9 @@
-from super_docker import Docker
+from MolnsLib.super_docker import Docker
 import tempfile
-import installSoftware
-from DockerProvider import DockerProvider
+import MolnsLib.installSoftware
+from MolnsLib.DockerProvider import DockerProvider
 
-commands = installSoftware.InstallSW.command_list
+commands = MolnsLib.installSoftware.InstallSW.command_list
 
 docker = Docker()
 #

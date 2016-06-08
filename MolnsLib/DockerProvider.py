@@ -6,7 +6,6 @@ import super_docker
 import installSoftware
 import tempfile
 from docker_ssh import DockerSSH
-
 from collections import OrderedDict
 from molns_provider import ProviderBase, ProviderException
 
@@ -94,7 +93,7 @@ class DockerProvider(DockerBase):
     ])
 
     def get_config_credentials(self):
-        None
+        return None
 
     @staticmethod
     def __get_new_dockerfile_name():
@@ -104,12 +103,11 @@ class DockerProvider(DockerBase):
 
     def check_ssh_key(self):
         """ Returns true. (Implementation does not use SSH.) """
-        print "reached_check_ssh_key"
+        print "reached check_ssh_key"
         return True
 
     def create_ssh_key(self):
         """ Returns true.  """
-        # TODO
         print "reached create_ssh_key"
         ssh_key_dir = os.path.join(self.config_dir, self.name)
         fp = open(ssh_key_dir, 'w')
@@ -177,7 +175,7 @@ class DockerProvider(DockerBase):
                 else:
                     dockerfile += ''' && \ \n    ''' + self._preprocess(entry)
 
-        dockerfile += '''\n\nUSER ubuntu\nENV HOME /home/ubuntu'''
+        dockerfile += '''\n\nUSER ubuntu\nENV HOME /home/ubuntu\nVOLUME /home/ubuntu'''
 
         dockerfile_file = DockerProvider.__get_new_dockerfile_name()
         with open(dockerfile_file, 'w') as Dockerfile:
