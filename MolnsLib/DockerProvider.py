@@ -103,12 +103,12 @@ class DockerProvider(DockerBase):
 
     def check_ssh_key(self):
         """ Returns true. (Implementation does not use SSH.) """
-        print "reached check_ssh_key"
+        # print "reached check_ssh_key"
         return True
 
     def create_ssh_key(self):
         """ Returns true.  """
-        print "reached create_ssh_key"
+        # print "reached create_ssh_key"
         ssh_key_dir = os.path.join(self.config_dir, self.name)
         fp = open(ssh_key_dir, 'w')
         fp.write("This is a dummy key.")
@@ -127,10 +127,10 @@ class DockerProvider(DockerBase):
         """ Create a molns image, save it on localhost and return ID of created image. """
         # create Dockerfile and build container.
         try:
-            print("Creating Dockerfile...")
+            # print("Creating Dockerfile...")
             dockerfile = self._create_dockerfile(installSoftware.InstallSW.get_command_list())
             image_id = self.docker.build_image(dockerfile)
-            print("Image created.")
+            # print("Image created.")
             return image_id
         except Exception as e:
             logging.exception(e)

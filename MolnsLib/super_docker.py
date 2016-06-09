@@ -26,7 +26,7 @@ class Docker:
 
     def create_container(self, image_id=Constants.DOCKER_DEFAULT_IMAGE):
         """Creates a new container with elevated privileges. Returns the container ID. """
-        print "Using image {0}".format(image_id)
+        # print "Using image {0}".format(image_id)
         hc = self.client.create_host_config(privileged=True)
         container = self.client.create_container(image=image_id, command="/bin/bash", tty=True, detach=True,
                                                  host_config=hc)
@@ -61,7 +61,7 @@ class Docker:
 
     def start_container(self, container_id):
         """ Start the container with given ID."""
-        print(Docker.LOG_TAG + " Starting container " + container_id)
+        # print(Docker.LOG_TAG + " Starting container " + container_id)
         try:
             self.client.start(container=container_id)
         except (NotFound, NullResource) as e:
@@ -86,7 +86,7 @@ class Docker:
 
     def build_image(self, dockerfile):
         """ Build image from given Dockerfile object and return ID of the image created. """
-        print("Building image...")
+        # print("Building image...")
         image_tag = Constants.DOCKER_IMAGE_PREFIX + "{0}".format(self.build_count)
         last_line = ""
         try:
@@ -111,7 +111,7 @@ class Docker:
         for image in self.client.images():
             some_id = image["Id"]
             if image_id in some_id[:(Constants.DOCKER_PY_IMAGE_ID_PREFIX_LENGTH + Constants.DOKCER_IMAGE_ID_LENGTH)]:
-                print("Image exists: " + str(image))
+                # print("Image exists: " + str(image))
                 return True
         return False
 

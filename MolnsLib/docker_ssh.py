@@ -12,7 +12,7 @@ class DockerSSH(object):
     def exec_command(self, command, verbose=True):
         cmd = re.sub("\"", "\\\"", command)  # Escape all occurrences of ".
         ret_val, response = self.docker.execute_command(self.container_id, cmd)
-        print "RESPONSE: " + response
+        # print "RESPONSE: " + response
         return response
 
     def exec_multi_command(self, command, for_compatibility):
