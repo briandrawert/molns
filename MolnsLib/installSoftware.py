@@ -114,7 +114,6 @@ class InstallSW:
         "sudo mkdir -p /usr/local/stochss/",
         "sudo chown ubuntu /usr/local/stochss/",
         "cd /usr/local/ && git clone --recursive https://github.com/StochSS/stochss.git",
-        "cd /usr/local/stochss && git checkout saas",
         "cd /usr/local/stochss/ && ./run.ubuntu.sh --install --yy",
         "sudo STOCHSS_HOME=/usr/local/stochss/ pip install https://github.com/briandrawert/GillesPy/tarball/master/",
         "python -c 'import gillespy'"
