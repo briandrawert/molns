@@ -1114,15 +1114,16 @@ class MOLNSProvider(MOLNSbase):
             print "security group={0} is valid.".format(provider_obj['group_name'])
         
         # check for MOLNS image
-        if provider_obj['molns_image_name'] is None or provider_obj['molns_image_name'] == '':
-            if provider_obj['ubuntu_image_name'] is None or provider_obj['ubuntu_image_name'] == '':
-                print "Error: no ubuntu_image_name given, can not create molns image."
+        if not provider_obj.check_molns_image():
+            if provider_obj['molns_image_name'] is None or provider_obj['molns_image_name'] == '':
+                if provider_obj['ubuntu_image_name'] is None or provider_obj['ubuntu_image_name'] == '':
+                    print "Error: no ubuntu_image_name given, can not create molns image."
+                else:
+                    print "Creating new image, this process can take a long time (10-30 minutes)."
+                    provider_obj['molns_image_name'] = provider_obj.create_molns_image()
             else:
-                print "Creating new image, this process can take a long time (10-30 minutes)."
-                provider_obj['molns_image_name'] = provider_obj.create_molns_image()
-        elif not provider_obj.check_molns_image():
-            print "Error: an molns image was provided, but it is not available in cloud."
-            return
+                print "Error: an molns image was provided, but it is not available in cloud."
+                return
 
         print "Success."
         config.save_object(provider_obj, kind='Provider')

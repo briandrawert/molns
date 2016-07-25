@@ -84,10 +84,10 @@ class EucalyptusProvider(EucalyptusBase):
         {'q':'Eucalyptus Security Group name', 'default':'molns', 'ask':True}),
     ('ubuntu_image_name',
         {'q':'ID of the base Ubuntu image to use', 'default':EucalyptusProvider_config_get_ubuntu_images_by_region, 'ask':True}),
-    ('molns_image_name',
-        {'q':'ID of the MOLNs image (leave empty for none)', 'default':None, 'ask':True}),
+    #('molns_image_name',
+    #    {'q':'ID of the MOLNs image (leave empty for none)', 'default':None, 'ask':True}),
     ('default_instance_type',
-        {'q':'Default Instance Type', 'default':'c3.large', 'ask':True}),
+        {'q':'Default Instance Type', 'default':'m1.large', 'ask':True}),
     ('login_username',
         {'default':'ubuntu', 'ask':False})
     ])
@@ -136,69 +136,57 @@ class EucalyptusProvider(EucalyptusBase):
 
     def check_molns_image(self):
         """ Check if the molns image is created. """
-        sys.stdout.write("DEBUGGING: EucalyptusProvider.check_molns_image(): skipping\n")
         return True
-        if 'molns_image_name' in self.config and self.config['molns_image_name'] is not None and self.config['molns_image_name'] != '':
-            self._connect()
-            return self.eucalyptus.image_exists(self.config['molns_image_name'])
-        return False
+#        if 'molns_image_name' in self.config and self.config['molns_image_name'] is not None and self.config['molns_image_name'] != '':
+#            self._connect()
+#            return self.eucalyptus.image_exists(self.config['molns_image_name'])
+#        return False
 
     def create_molns_image(self):
         """ Create the molns image is created. """
-        sys.stdout.write("DEBUGGING: EucalyptusProvider.create_molns_image(): skipping\n")
-        return True
-        self._connect()
-        # clear the network-related persisent udev rules:
-        #echo "" > /etc/udev/rules.d/70-persistent-net.rules
-        #echo "" > /lib/udev/rules.d/75-persistent-net-generator.rules
-        #
-        
-        # start vm
-        instances = self.eucalyptus.start_eucalyptus_instances(image_id=self.config["ubuntu_image_name"])
-        instance = instances[0]
-        # get login ip
-        ip = instance.public_dns_name
-        # install software
-        try:
-            logging.debug("installing software on server (ip={0})".format(ip))
-            install_vm_instance = installSoftware.InstallSW(ip, config=self)
-            install_vm_instance.run_with_logging()
-            logging.debug("Removing persistent udev rules on server (ip={0})".format(ip))
-            install_vm_instance.remove_persisent_udev_rules()
-            logging.debug("Shutting down instance")
-            self.eucalyptus.stop_eucalyptus_instances([instance])
-            l#ogging.debug("Creating image")
-            # Original Method, instances.create_
-            #image_id = instance.create_image(name=self._get_image_name())
-            # New Method, conn.create_
-            #image_id = self.eucalyptus.conn.create_image(instance.id, name=self._get_image_name(), description='Molns created Eucalyptus image')
-            logging.debug("Finding volume of instance")
-            vol = None
-            for v in self.eucalyptus.conn.get_all_volumes():
-                if v.attach_data is not None and v.attach_data.instance_id == instance.id:
-                    vol = v
-                    break
-            if vol is None:
-                raise Exception("Can not find volume associated with instance.  Base image must be an EBS backed image.")
-            snap = vol.create_snapshot()
-            logging.debug('Snapshot {0} of volume {1}'.format(snap.id, vol.id))
-            while snap.state == u'pending':
-                logging.debug('\tSnapshot {0}.state {1}'.format(snap.id, snap.state))
-                time.sleep(10)
-                snap.update()
-            logging.debug('\tSnapshot {0}.state {1}'.format(snap.id, snap.state))
-            
-            #image_id = self.eucalyptus.conn.register_image(name=self._get_image_name(), snapshot_id=snap.id, delete_root_volume_on_termination=True)
-            ##deleteOnTermination
-            image_id = self.eucalyptus.conn.register_image(name=self._get_image_name(), snapshot_id=snap.id)
-            logging.debug("Image created: {0}".format(image_id))
-        except Exception as e:
-            logging.exception(e)
-            raise ProviderException("Failed to create molns image: {0}".format(e))
-        finally:
-            logging.debug("terminating {0}".format(instance))
-            self.eucalyptus.terminate_eucalyptus_instances([instance])
-        return image_id
+        pass
+#        self._connect()
+#        # clear the network-related persisent udev rules:
+#        #echo "" > /etc/udev/rules.d/70-persistent-net.rules 
+#        #echo "" > /lib/udev/rules.d/75-persistent-net-generator.rules
+#        #
+#        
+#        # start vm
+#        instances = self.eucalyptus.start_eucalyptus_instances(image_id=self.config["ubuntu_image_name"])
+#        instance = instances[0]
+#        # get login ip
+#        ip = instance.public_dns_name
+#        # install software
+#        try:
+#            logging.debug("installing software on server (ip={0})".format(ip))
+#            install_vm_instance = installSoftware.InstallSW(ip, config=self)
+#            install_vm_instance.run_with_logging()
+#            # create image
+#            logging.debug("Shutting down instance")
+#            self.eucalyptus.stop_eucalyptus_instances([instance])
+#            logging.debug("Creating image")
+#            image_id = instance.create_image(name=self._get_image_name())
+#            #logging.debug("Finding volume of instance")
+#            #vol = None
+#            #for v in self.eucalyptus.conn.get_all_volumes():
+#            #    if v.attach_data is not None and v.attach_data.instance_id == instance.id:
+#            #        vol = v
+#            #        break
+#            #if vol is None:
+#            #    raise Exception("Can not find volume associated with instance.  Base image must be an EBS backed image.")
+#            #snap = vol.create_snapshot()
+#            #logging.debug('Snapshot {0} of volume {1}'.format(snap.id, vol.id))
+#            #image_id = self.eucalyptus.conn.register_image(name=self._get_image_name(), snapshot_id=snap.id, delete_root_volume_on_termination=True)
+#            ##deleteOnTermination
+#            #image_id = self.eucalyptus.conn.register_image(name=self._get_image_name(), snapshot_id=snap.id)
+#            logging.debug("Image created: {0}".format(image_id))
+#        except Exception as e:
+#            logging.exception(e)
+#            raise ProviderException("Failed to create molns image: {0}".format(e))
+#        finally:
+#            logging.debug("terminating {0}".format(instance))
+#            self.eucalyptus.terminate_eucalyptus_instances([instance])
+#        return image_id
 
     def _connect(self):
         if self.connected: return
@@ -217,7 +205,7 @@ class EucalyptusController(EucalyptusBase):
     CONFIG_VARS = OrderedDict(
     [
     ('instance_type',
-        {'q':'Default Instance Type', 'default':'c3.large', 'ask':True}),
+        {'q':'Default Instance Type', 'default':'m1.large', 'ask':True}),
     ])
 
     def _connect(self):
@@ -227,13 +215,18 @@ class EucalyptusController(EucalyptusBase):
 
     def start_instance(self, num=1):
         """ Start or resume the controller. """
+
         try:
             self._connect()
-            instances = self.eucalyptus.start_eucalyptus_instances(image_id=self.provider.config["molns_image_name"], num=int(num), instance_type=self.config["instance_type"])
+            #instances = self.eucalyptus.start_eucalyptus_instances(image_id=self.provider.config["molns_image_name"], num=int(num), instance_type=self.config["instance_type"])
+            instances = self.eucalyptus.start_eucalyptus_instances(image_id=self.provider.config["ubuntu_image_name"], num=int(num), instance_type=self.config["instance_type"])
             ret = []
             for instance in instances:
                 ip = instance.public_dns_name
                 i  = self.datastore.get_instance(provider_instance_identifier=instance.id, ip_address=ip, provider_id=self.provider.id, controller_id=self.id)
+                print "Installing software on {0}".format(ip)
+                install_vm_instance = installSoftware.InstallSW(ip, config=self.provider)
+                install_vm_instance.run_with_logging()
                 ret.append(i)
                 ###################################
                 logging.debug("Installing software on server (ip={0})".format(ip))
@@ -327,7 +320,7 @@ class EucalyptusWorkerGroup(EucalyptusController):
     CONFIG_VARS = OrderedDict(
     [
     ('instance_type',
-        {'q':'Default Instance Type', 'default':'c3.large', 'ask':True}),
+        {'q':'Default Instance Type', 'default':'m1.large', 'ask':True}),
     ('num_vms',
         {'q':'Number of virtual machines in group', 'default':'1', 'ask':True}),
     ])
@@ -341,6 +334,9 @@ class EucalyptusWorkerGroup(EucalyptusController):
             for instance in instances:
                 ip = instance.public_dns_name
                 i  = self.datastore.get_instance(provider_instance_identifier=instance.id, ip_address=ip, provider_id=self.provider.id, controller_id=self.controller.id,  worker_group_id=self.id)
+                print "Installing software on {0}".format(ip)
+                install_vm_instance = installSoftware.InstallSW(ip, config=self.provider)
+                install_vm_instance.run_with_logging()
                 ret.append(i)
             if num == 1:
                 return ret[0]
