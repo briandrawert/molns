@@ -357,8 +357,16 @@ class SSHDeploy:
             print "Starting Nginx"
             self.exec_command("sudo nginx")
 
-            #print "Checking out latest development version"
-            #self.exec_command("cd /usr/local/stochss && git fetch && git checkout saas && git pull origin saas")
+            print "Moving StochSS to big disk"
+            self.exec_command("sudo rm -rf /usr/local/stochss")
+            self.exec_command("sudo mkdir -p /mnt/stochss")
+            self.exec_command("sudo chown ubuntu /mnt/stochss")
+            self.exec_command("sudo ln -s /mnt/stochss /usr/local/stochss")
+            self.exec_command("cd /mnt; git clone --recursive https://github.com/StochSS/stochss.git")
+
+
+            print "Checking out latest tutorial branch"
+            self.exec_command("cd /usr/local/stochss && git fetch && git checkout tutorial && git pull origin tutorial")
 
             print "Configuring StochSS"
             admin_token = uuid.uuid4()
