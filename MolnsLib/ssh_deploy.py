@@ -9,7 +9,7 @@ import uuid
 import webbrowser
 import urllib2
 from ssh import SSH
-from docker_ssh import DockerSSH
+from DockerSSH import DockerSSH
 
 
 class SSHDeployException(Exception):

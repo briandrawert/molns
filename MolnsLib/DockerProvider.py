@@ -2,10 +2,10 @@ import Constants
 import logging
 import time
 import os
-import super_docker
+import Docker
 import installSoftware
 import tempfile
-from docker_ssh import DockerSSH
+from DockerSSH import DockerSSH
 from collections import OrderedDict
 from molns_provider import ProviderBase, ProviderException
 
@@ -23,7 +23,7 @@ class DockerBase(ProviderBase):
 
     def __init__(self, name, config=None, config_dir=None, **kwargs):
         ProviderBase.__init__(self, name, config, config_dir, **kwargs)
-        self.docker = super_docker.Docker()
+        self.docker = Docker.Docker()
         self.ssh = DockerSSH(self.docker)
 
     def _get_container_status(self, container_id):
@@ -87,7 +87,7 @@ class DockerProvider(DockerBase):
         ('key_name',
          {'q': 'Docker Key Pair name', 'default': "docker-default", 'ask': False}),  # Unused.
         ('group_name',
-         {'q': 'Docker Security Group name', 'default': 'molns', 'ask': True}),  # Unused.
+         {'q': 'Docker Security Group name', 'default': 'molns', 'ask': False}),  # Unused.
         ('login_username',
          {'default': 'ubuntu', 'ask': False})  # Unused.
     ])
@@ -127,7 +127,7 @@ class DockerProvider(DockerBase):
         """ Create a molns image, save it on localhost and return ID of created image. """
         # create Dockerfile and build container.
         try:
-            # print("Creating Dockerfile...")
+            print("Creating Dockerfile...")
             dockerfile = self._create_dockerfile(installSoftware.InstallSW.get_command_list())
             image_id = self.docker.build_image(dockerfile)
             # print("Image created.")
@@ -146,13 +146,13 @@ class DockerProvider(DockerBase):
     def _create_dockerfile(self, commands):
         """ Create Dockerfile from given commands. """
         import pwd
-        user_id = pwd.getpwnam(os.getlogin()).pw_uid
-        dockerfile = '''FROM ubuntu:14.04\nRUN apt-get update\n \n# Add user ubuntu. \nRUN useradd -u {0} -ms /bin/bash ubuntu \n
-         # Set up base environment.\nRUN apt-get install -yy \ \n
-         software-properties-common \ \n    python-software-properties \ \n    wget \ \n    curl \ \n git \ \n
-         ipython \ \n sudo \ \n screen \ \n iptables \n
-         RUN echo "ubuntu ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers \n
-         WORKDIR /home/ubuntu\n'''.format(user_id)
+
+        user_id = pwd.getpwnam(os.environ['SUDO_USER']).pw_uid
+        dockerfile = '''FROM ubuntu:14.04\nRUN apt-get update\n\n# Add user ubuntu.\nRUN useradd -u {0} -ms /bin/bash ubuntu\n
+         # Set up base environment.\nRUN apt-get install -yy \ \n    software-properties-common \
+         \n    python-software-properties \ \n    wget \ \n    curl \ \n   git \ \n    ipython \ \n    sudo \
+         \n    screen \ \n    iptables \nRUN echo "ubuntu ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+         \nWORKDIR /home/ubuntu\n'''.format(user_id)
 
         flag = False
 
@@ -189,7 +189,7 @@ class DockerProvider(DockerBase):
 
     def _preprocess(self, command):
         """ Filters out any sudos in the command, prepends "shell only" commands with '/bin/bash -c'. """
-        for shell_command in super_docker.Docker.shell_commands:
+        for shell_command in Docker.Docker.shell_commands:
             if shell_command in command:
                 replace_string = "/bin/bash -c \"" + shell_command
                 command = command.replace(shell_command, replace_string)

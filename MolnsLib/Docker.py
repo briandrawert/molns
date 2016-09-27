@@ -61,7 +61,7 @@ class Docker:
 
     def start_container(self, container_id):
         """ Start the container with given ID."""
-        # print(Docker.LOG_TAG + " Starting container " + container_id)
+        print(Docker.LOG_TAG + " Starting container " + container_id)
         try:
             self.client.start(container=container_id)
         except (NotFound, NullResource) as e:
@@ -135,21 +135,18 @@ class Docker:
             print("ERROR Could not start container.")
             return
 
-        # Prepend file path with /home/ubuntu/. Very hack-y. TODO Should be refined.
+        # Prepend file path with /home/ubuntu/. TODO Should be refined.
         if not target_path_in_container.startswith("/home/ubuntu/"):
             target_path_in_container = "/home/ubuntu/" + target_path_in_container
 
-        print("Unpacking archive to: " + target_path_in_container)
-        if self.client.put_archive(container_id, target_path_in_container, tar_file_bytes):
-            print("Copied file successfully.")
-        else:
+        # print("Unpacking archive to: " + target_path_in_container)
+        if not self.client.put_archive(container_id, target_path_in_container, tar_file_bytes):
             print("Failed to copy.")
 
     def get_container_ip_address(self, container_id):
         """ Returns the IP Address of given container."""
         self.start_container(container_id)
         ins = self.client.inspect_container(container_id)
-        print("Waiting for an IP Address...")
         ip_address = str(ins.get("NetworkSettings").get("IPAddress"))
         while True:
             ip_address = str(ins.get("NetworkSettings").get("IPAddress"))
@@ -157,5 +154,4 @@ class Docker:
                 time.sleep(3)
             if ip_address.startswith("1") is True:
                 break
-        print("IP ADDRESS: " + ip_address)
         return ip_address

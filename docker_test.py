@@ -1,4 +1,4 @@
-from MolnsLib.super_docker import Docker
+from MolnsLib.Docker import Docker
 import tempfile
 import MolnsLib.installSoftware
 from MolnsLib.DockerProvider import DockerProvider
