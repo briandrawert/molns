@@ -61,7 +61,7 @@ class Docker:
 
     def start_container(self, container_id):
         """ Start the container with given ID."""
-        print(Docker.LOG_TAG + " Starting container " + container_id)
+        # print(Docker.LOG_TAG + " Starting container " + container_id)
         try:
             self.client.start(container=container_id)
         except (NotFound, NullResource) as e:
@@ -72,7 +72,7 @@ class Docker:
     def execute_command(self, container_id, command):
         """Executes given command as a shell command in the given container. Returns None is anything goes wrong."""
         run_command = "/bin/bash -c \"" + command + "\""
-        print("CONTAINER: {0} COMMAND: {1}".format(container_id, run_command))
+        # print("CONTAINER: {0} COMMAND: {1}".format(container_id, run_command))
         if self.start_container(container_id) is False:
             print("Could not start container.")
             return None
