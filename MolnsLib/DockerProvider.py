@@ -83,7 +83,7 @@ class DockerProvider(DockerBase):
          {'q': 'Base Ubuntu image to use', 'default': Constants.Constants.DOCKER_DEFAULT_IMAGE,
           'ask': True}),
         ('molns_image_name',
-         {'q': 'Local MOLNs image ID to use', 'default': '', 'ask': True}),
+         {'q': 'Local MOLNs Docker image ID to use (Leave blank to build new image)', 'default': '', 'ask': True}),
         ('key_name',
          {'q': 'Docker Key Pair name', 'default': "docker-default", 'ask': False}),  # Unused.
         ('group_name',
@@ -149,9 +149,9 @@ class DockerProvider(DockerBase):
 
         user_id = pwd.getpwnam(os.environ['SUDO_USER']).pw_uid
         dockerfile = '''FROM ubuntu:14.04\nRUN apt-get update\n\n# Add user ubuntu.\nRUN useradd -u {0} -ms /bin/bash ubuntu\n
-         # Set up base environment.\nRUN apt-get install -yy \ \n    software-properties-common \
-         \n    python-software-properties \ \n    wget \ \n    curl \ \n   git \ \n    ipython \ \n    sudo \
-         \n    screen \ \n    iptables \nRUN echo "ubuntu ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+         # Set up base environment.\nRUN apt-get install -yy \ \n    software-properties-common \ \n
+             python-software-properties \ \n    wget \ \n    curl \ \n   git \ \n    ipython \ \n    sudo \ \n
+             screen \ \n    iptables \nRUN echo "ubuntu ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
          \nWORKDIR /home/ubuntu\n'''.format(user_id)
 
         flag = False
