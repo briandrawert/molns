@@ -53,7 +53,7 @@ class MockSFTPFile:
         if flag is 'w':
             self.flag = flag
         else:
-            print("WARNING Unrecognized file mode.")
+            print("WARNING Unrecognized file mode. Filename: {0}, Flag: {1}".format(filename, flag))
 
     def write(self, write_this):
         self.file_contents += write_this
@@ -73,7 +73,7 @@ class MockSFTPFile:
         path_to_file = os.path.dirname(self.filename)
         # create_path_to_file_command = "sudo mkdir -p {0}".format(path_to_file)
         # self.docker.execute_command(self.container_id, create_path_to_file_command)
-        print "PATH TO FILE: " + path_to_file
+        # print "PATH TO FILE: " + path_to_file
         with open(temp_tar, mode='rb') as f:
             tar_file_bytes = f.read()
         self.docker.put_archive(self.container_id, tar_file_bytes, path_to_file)
