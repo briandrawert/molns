@@ -83,7 +83,7 @@ class DockerProvider(DockerBase):
          {'q': 'Base Ubuntu image to use', 'default': Constants.Constants.DOCKER_DEFAULT_IMAGE,
           'ask': True}),
         ('molns_image_name',
-         {'q': 'Local MOLNs Docker image ID to use (Leave blank to build new image)', 'default': '', 'ask': True}),
+         {'q': 'Local MOLNs image (Docker image ID) to use ', 'default': None, 'ask': True}),
         ('key_name',
          {'q': 'Docker Key Pair name', 'default': "docker-default", 'ask': False}),  # Unused.
         ('group_name',
@@ -175,7 +175,7 @@ class DockerProvider(DockerBase):
                 else:
                     dockerfile += ''' && \ \n    ''' + self._preprocess(entry)
 
-        dockerfile += '''\n\nUSER ubuntu\nENV HOME /home/ubuntu\nVOLUME /home/ubuntu'''
+        dockerfile += '''\n\nUSER ubuntu\nENV HOME /home/ubuntu\nVOLUME /home/ubuntu\n'''
 
         dockerfile_file = DockerProvider.__get_new_dockerfile_name()
         with open(dockerfile_file, 'w') as Dockerfile:

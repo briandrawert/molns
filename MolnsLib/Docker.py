@@ -27,8 +27,8 @@ class Docker:
     def create_container(self, image_id=Constants.DOCKER_DEFAULT_IMAGE):
         """Creates a new container with elevated privileges. Returns the container ID. """
         # print "Using image {0}".format(image_id)
-        hc = self.client.create_host_config(privileged=True)
-        container = self.client.create_container(image=image_id, command="/bin/bash", tty=True, detach=True,
+        hc = self.client.create_host_config(privileged=True, port_bindings={80: 8080})
+        container = self.client.create_container(image=image_id, command="/bin/bash", tty=True, detach=True, ports=[80],
                                                  host_config=hc)
         return container.get("Id")
 
