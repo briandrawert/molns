@@ -411,7 +411,10 @@ class MOLNSController(MOLNSbase):
             if len(instance_list) > 0:
                 table_data = []
                 for i in instance_list:
-                    provider_name = config.get_object_by_id(i.provider_id, 'Provider').name
+                    provider_obj = config.get_object_by_id(i.provider_id, 'Provider')
+                    if provider_obj is None:
+                        continue
+                    provider_name = provider_obj.name
                     controller_name = config.get_object_by_id(i.controller_id, 'Controller').name
                     if i.worker_group_id is not None:
                         worker_name = config.get_object_by_id(i.worker_group_id, 'WorkerGroup').name
