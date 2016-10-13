@@ -1,6 +1,8 @@
 import logging
 import re
 import time
+
+from MolnsLib.Utils import Log
 from molns_provider import ProviderBase
 from Constants import Constants
 from docker import Client
@@ -16,18 +18,20 @@ class Docker:
     shell_commands = ["source"]
 
     class ImageBuildException(Exception):
-        def __init__(self):
-            super("Something went wrong while building docker container image.")
+        def __init__(self, message=None):
+            super("Something went wrong while building docker container image.\n{0}".format(message))
 
     def __init__(self):
         self.client = Client(base_url=Constants.DOCKER_BASE_URL)
         self.build_count = 0
         logging.basicConfig(level=logging.DEBUG)
 
-    def create_container(self, image_id=Constants.DOCKER_DEFAULT_IMAGE):
-        """Creates a new container with elevated privileges. Returns the container ID. """
-        # print "Using image {0}".format(image_id)
-        hc = self.client.create_host_config(privileged=True, port_bindings={80: 8080})
+    def create_container(self, image_id=Constants.DOCKER_DEFAULT_IMAGE, port_bindings={80: 8080}):
+        """Creates a new container with elevated privileges. Returns the container ID. Maps port 80 of container
+        to 8080 of locahost by default"""
+
+        Log.write_log("Using image {0}".format(image_id))
+        hc = self.client.create_host_config(privileged=True, port_bindings=port_bindings)
         container = self.client.create_container(image=image_id, command="/bin/bash", tty=True, detach=True, ports=[80],
                                                  host_config=hc)
         return container.get("Id")
@@ -61,11 +65,11 @@ class Docker:
 
     def start_container(self, container_id):
         """ Start the container with given ID."""
-        # print(Docker.LOG_TAG + " Starting container " + container_id)
+        Log.write_log(Docker.LOG_TAG + " Starting container " + container_id)
         try:
             self.client.start(container=container_id)
         except (NotFound, NullResource) as e:
-            print (Docker.LOG_TAG + " Something went wrong while starting container.", e)
+            Log.write_log(Docker.LOG_TAG + " Something went wrong while starting container.", e)
             return False
         return True
 
@@ -74,19 +78,19 @@ class Docker:
         run_command = "/bin/bash -c \"" + command + "\""
         # print("CONTAINER: {0} COMMAND: {1}".format(container_id, run_command))
         if self.start_container(container_id) is False:
-            print("Could not start container.")
+            Log.write_log(Docker.LOG_TAG + "Could not start container.")
             return None
         try:
             exec_instance = self.client.exec_create(container_id, run_command)
             response = self.client.exec_start(exec_instance)
             return [self.client.exec_inspect(exec_instance), response]
         except (NotFound, APIError) as e:
-            print (Docker.LOG_TAG + " Could not execute command.", e)
+            Log.write_log(Docker.LOG_TAG + " Could not execute command.", e)
             return None
 
     def build_image(self, dockerfile):
         """ Build image from given Dockerfile object and return ID of the image created. """
-        # print("Building image...")
+        Log.write_log(Docker.LOG_TAG + "Building image...")
         image_tag = Constants.DOCKER_IMAGE_PREFIX + "{0}".format(self.build_count)
         last_line = ""
         try:
@@ -100,8 +104,8 @@ class Docker:
             # id.
             exp = r'[a-z0-9]{12}'
             image_id = re.findall(exp, str(last_line))[0]
-            print("Image ID: {0}".format(image_id))
-            return image_id
+            Log.write_log(Docker.LOG_TAG + "Image ID: {0}".format(image_id))
+            return [image_id, image_tag]
         except (Docker.ImageBuildException, IndexError) as e:
             print("ERROR {0}".format(e))
             return None
@@ -110,8 +114,10 @@ class Docker:
         """Checks if an image with the given ID exists locally."""
         for image in self.client.images():
             some_id = image["Id"]
+            some_tags = image["RepoTags"]
             if image_id in some_id[:(Constants.DOCKER_PY_IMAGE_ID_PREFIX_LENGTH + Constants.DOKCER_IMAGE_ID_LENGTH)]:
-                # print("Image exists: " + str(image))
+                return True
+            if image_id in some_tags:
                 return True
         return False
 
@@ -132,16 +138,15 @@ class Docker:
         """ Copies and unpacks a given tarfile in the container at specified location.
         Location must exist in container."""
         if self.start_container(container_id) is False:
-            print("ERROR Could not start container.")
+            Log.write_log(Docker.LOG_TAG + "ERROR Could not start container.")
             return
 
         # Prepend file path with /home/ubuntu/. TODO Should be refined.
         if not target_path_in_container.startswith("/home/ubuntu/"):
             target_path_in_container = "/home/ubuntu/" + target_path_in_container
 
-        # print("Unpacking archive to: " + target_path_in_container)
         if not self.client.put_archive(container_id, target_path_in_container, tar_file_bytes):
-            print("Failed to copy.")
+            Log.write_log(Docker.LOG_TAG + "Failed to copy.")
 
     def get_container_ip_address(self, container_id):
         """ Returns the IP Address of given container."""

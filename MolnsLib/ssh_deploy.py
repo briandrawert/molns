@@ -331,8 +331,7 @@ class SSHDeploy:
 
     def deploy_ipython_controller(self, instance, notebook_password=None):
         ip_address = instance.ip_address
-        controller_hostname =  ''
-        engine_file_data = ''
+
         try:
             print "{0}:{1}".format(ip_address, self.ssh_endpoint)
             self.connect(instance, self.ssh_endpoint)

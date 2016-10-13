@@ -30,7 +30,7 @@ class DockerBase(ProviderBase):
         self.docker.container_status(container_id)
 
     def start_instance(self, num=1):
-        """ Start given number (or 1) containers. """
+        """ Start given number of (or 1) containers. """
         started_containers = []
         for i in range(num):
             container_id = self.docker.create_container(self.provider.config["molns_image_name"])
@@ -83,7 +83,7 @@ class DockerProvider(DockerBase):
          {'q': 'Base Ubuntu image to use', 'default': Constants.Constants.DOCKER_DEFAULT_IMAGE,
           'ask': True}),
         ('molns_image_name',
-         {'q': 'Local MOLNs image (Docker image ID) to use ', 'default': None, 'ask': True}),
+         {'q': 'Local MOLNs image (Docker image ID or image tag) to use ', 'default': None, 'ask': True}),
         ('key_name',
          {'q': 'Docker Key Pair name', 'default': "docker-default", 'ask': False}),  # Unused.
         ('group_name',
@@ -103,16 +103,13 @@ class DockerProvider(DockerBase):
 
     def check_ssh_key(self):
         """ Returns true. (Implementation does not use SSH.) """
-        # print "reached check_ssh_key"
         return True
 
     def create_ssh_key(self):
         """ Returns true.  """
-        # print "reached create_ssh_key"
         ssh_key_dir = os.path.join(self.config_dir, self.name)
-        fp = open(ssh_key_dir, 'w')
-        fp.write("This is a dummy key.")
-        fp.close()
+        with open(ssh_key_dir, 'w') as fp:
+            fp.write("This is a dummy key.")
         os.chmod(ssh_key_dir, 0o600)
 
     def check_security_group(self):
@@ -124,22 +121,24 @@ class DockerProvider(DockerBase):
         return True
 
     def create_molns_image(self):
-        """ Create a molns image, save it on localhost and return ID of created image. """
-        # create Dockerfile and build container.
+        """ Create a molns image, save it on localhost and return ID of created image. Because of the implementation in
+        a higher layer, this forces MOLNs to recognise docker images based only on their IDs and NOT names."""
+        dockerfile = None
         try:
-            print("Creating Dockerfile...")
             dockerfile = self._create_dockerfile(installSoftware.InstallSW.get_command_list())
             image_id = self.docker.build_image(dockerfile)
-            # print("Image created.")
             return image_id
         except Exception as e:
             logging.exception(e)
             raise ProviderException("Failed to create molns image: {0}".format(e))
+        finally:
+            if dockerfile is not None:
+                os.remove(dockerfile)
 
     def check_molns_image(self):
         """ Check if the molns image exists. """
-        if 'molns_image_name' in self.config and self.config['molns_image_name'] is not None and self.config[
-            'molns_image_name'] != '':
+        if 'molns_image_name' in self.config and self.config['molns_image_name'] is not None \
+                and self.config['molns_image_name'] != '':
             return self.docker.image_exists(self.config['molns_image_name'])
         return False
 
@@ -180,15 +179,15 @@ class DockerProvider(DockerBase):
         dockerfile_file = DockerProvider.__get_new_dockerfile_name()
         with open(dockerfile_file, 'w') as Dockerfile:
             Dockerfile.write(dockerfile)
-        print("Using as dockerfile : " + dockerfile_file)
         named_dockerfile = tempfile.NamedTemporaryFile()
         named_dockerfile.write(dockerfile)
         named_dockerfile.seek(0)
 
         return named_dockerfile
 
-    def _preprocess(self, command):
-        """ Filters out any sudos in the command, prepends "shell only" commands with '/bin/bash -c'. """
+    @staticmethod
+    def _preprocess(command):
+        """ Filters out any "sudo" in the command, prepends "shell only" commands with '/bin/bash -c'. """
         for shell_command in Docker.Docker.shell_commands:
             if shell_command in command:
                 replace_string = "/bin/bash -c \"" + shell_command

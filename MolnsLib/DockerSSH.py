@@ -4,24 +4,27 @@ import os
 import re
 
 
+# "unused" arguments to some methods are added to maintain compatibility with existing upper level APIs.
+from MolnsLib.Utils import Log
+
+
 class DockerSSH(object):
     def __init__(self, docker):
         self.docker = docker
         self.container_id = None
 
-    def exec_command(self, command, verbose=True):
+    def exec_command(self, command, unused):
         cmd = re.sub("\"", "\\\"", command)  # Escape all occurrences of ".
         ret_val, response = self.docker.execute_command(self.container_id, cmd)
-        # print "RESPONSE: " + response
         return response
 
-    def exec_multi_command(self, command, for_compatibility):
+    def exec_multi_command(self, command, unused):
         return self.exec_command(command)
 
     def open_sftp(self):
         return MockSFTP(self.docker, self.container_id)
 
-    def connect(self, instance, port=None, username=None, key_filename=None):
+    def connect(self, instance, unused1, unused2, unused3):
         self.container_id = instance.provider_instance_identifier
 
     def close(self):
@@ -53,7 +56,7 @@ class MockSFTPFile:
         if flag is 'w':
             self.flag = flag
         else:
-            print("WARNING Unrecognized file mode. Filename: {0}, Flag: {1}".format(filename, flag))
+            Log.write_log("WARNING Unrecognized file mode. Filename: {0}, Flag: {1}".format(filename, flag))
 
     def write(self, write_this):
         self.file_contents += write_this
@@ -68,13 +71,12 @@ class MockSFTPFile:
         tar_file_info = tarfile.TarInfo(name=os.path.basename(self.filename))
         tar_file_info.size = len(string.buf)
         tar.addfile(tarinfo=tar_file_info, fileobj=string)
-        tar.close()  # Create temporary tar file to be copied into container.
+        tar.close()
 
         path_to_file = os.path.dirname(self.filename)
-        # create_path_to_file_command = "sudo mkdir -p {0}".format(path_to_file)
-        # self.docker.execute_command(self.container_id, create_path_to_file_command)
-        # print "PATH TO FILE: " + path_to_file
+
         with open(temp_tar, mode='rb') as f:
             tar_file_bytes = f.read()
+
         self.docker.put_archive(self.container_id, tar_file_bytes, path_to_file)
         os.remove(temp_tar)  # Remove temporary tar file.

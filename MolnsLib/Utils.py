@@ -1,30 +1,10 @@
-import os
-import logging
+class Log:
+    verbose = True
 
-from MolnsLib.Constants import Constants
+    def __init__(self):
+        pass
 
-
-class Logger(object):
-
-    def __init__(self, name):
-        name = name.replace('.log','')
-        logger = logging.getLogger('MOLNS.%s' % name)
-        logger.setLevel(logging.DEBUG)
-        if not logger.handlers:
-            file_name = os.path.join(Constants.LOGGING_DIRECTORY, '%s.log' % name)
-            handler = logging.FileHandler(file_name)
-            formatter = logging.Formatter('%(asctime)s %(levelname)s:%(name)s %(message)s')
-            handler.setFormatter(formatter)
-            handler.setLevel(logging.DEBUG)
-            logger.addHandler(handler)
-        self._logger = logger
-
-    def get(self):
-        return self._logger
-
-debug_docker = False
-
-
-def print_d(print_this):
-    if debug_docker:
-        print print_this
+    @staticmethod
+    def write_log(message):
+        if Log.verbose:
+            print message
