@@ -13,18 +13,18 @@ class DockerSSH(object):
         self.docker = docker
         self.container_id = None
 
-    def exec_command(self, command, unused):
+    def exec_command(self, command, verbose=None):
         cmd = re.sub("\"", "\\\"", command)  # Escape all occurrences of ".
         ret_val, response = self.docker.execute_command(self.container_id, cmd)
         return response
 
-    def exec_multi_command(self, command, unused):
+    def exec_multi_command(self, command, verbose=None):
         return self.exec_command(command)
 
     def open_sftp(self):
         return MockSFTP(self.docker, self.container_id)
 
-    def connect(self, instance, unused1, unused2, unused3):
+    def connect(self, instance, endpoint, username=None, key_filename=None):
         self.container_id = instance.provider_instance_identifier
 
     def close(self):

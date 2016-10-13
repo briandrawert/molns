@@ -2,6 +2,7 @@
 import os
 import sys
 
+from MolnsLib.Constants import Constants
 from MolnsLib.Utils import Log
 from MolnsLib.molns_datastore import Datastore, DatastoreException, VALID_PROVIDER_TYPES, get_provider_handle
 from MolnsLib.molns_provider import ProviderException
@@ -456,6 +457,7 @@ class MOLNSController(MOLNSbase):
             # Start a new instance
             print "Starting new controller"
             inst = controller_obj.start_instance()
+
         # deploying
         sshdeploy = SSHDeploy(controller_obj.ssh, config=controller_obj.provider, config_dir=config.config_dir)
         sshdeploy.deploy_ipython_controller(inst, notebook_password=password)

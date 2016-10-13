@@ -10,4 +10,3 @@ qsubscript
 /dockerfile_*
 \#qsubscript\#
 docker_test.py
-.idea/

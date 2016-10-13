@@ -36,7 +36,8 @@ class DockerBase(ProviderBase):
             container_id = self.docker.create_container(self.provider.config["molns_image_name"])
             stored_container = self.datastore.get_instance(provider_instance_identifier=container_id,
                                                            ip_address=self.docker.get_container_ip_address(container_id)
-                                                           , provider_id=self.provider.id, controller_id=self.id)
+                                                           , provider_id=self.provider.id, controller_id=self.id,
+                                                           provider_type=Constants.Constants.DockerProvider)
             started_containers.append(stored_container)
         if num == 1:
             return started_containers[0]
@@ -89,7 +90,9 @@ class DockerProvider(DockerBase):
         ('group_name',
          {'q': 'Docker Security Group name', 'default': 'molns', 'ask': False}),  # Unused.
         ('login_username',
-         {'default': 'ubuntu', 'ask': False})  # Unused.
+         {'default': 'ubuntu', 'ask': False}),  # Unused.
+        ('provider_type',
+         {'default': Constants.Constants.DockerProvider, 'ask': False})
     ])
 
     def get_config_credentials(self):
@@ -121,19 +124,18 @@ class DockerProvider(DockerBase):
         return True
 
     def create_molns_image(self):
-        """ Create a molns image, save it on localhost and return ID of created image. Because of the implementation in
-        a higher layer, this forces MOLNs to recognise docker images based only on their IDs and NOT names."""
-        dockerfile = None
+        """ Create a molns image, save it on localhost and return DockerImage ID of created image. """
+        file_to_remove = None
         try:
-            dockerfile = self._create_dockerfile(installSoftware.InstallSW.get_command_list())
+            dockerfile, file_to_remove = self._create_dockerfile(installSoftware.InstallSW.get_command_list())
             image_id = self.docker.build_image(dockerfile)
             return image_id
         except Exception as e:
             logging.exception(e)
             raise ProviderException("Failed to create molns image: {0}".format(e))
         finally:
-            if dockerfile is not None:
-                os.remove(dockerfile)
+            if file_to_remove is not None:
+                os.remove(file_to_remove)
 
     def check_molns_image(self):
         """ Check if the molns image exists. """
@@ -183,7 +185,7 @@ class DockerProvider(DockerBase):
         named_dockerfile.write(dockerfile)
         named_dockerfile.seek(0)
 
-        return named_dockerfile
+        return named_dockerfile, dockerfile_file
 
     @staticmethod
     def _preprocess(command):

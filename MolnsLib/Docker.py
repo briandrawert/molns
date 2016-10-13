@@ -11,7 +11,7 @@ from docker.errors import NotFound, NullResource, APIError
 
 class Docker:
 
-    """ A wrapper over docker-py."""
+    """ A wrapper over docker-py and some utility methods and classes. """
 
     LOG_TAG = "Docker"
 
@@ -26,13 +26,18 @@ class Docker:
         self.build_count = 0
         logging.basicConfig(level=logging.DEBUG)
 
-    def create_container(self, image_id=Constants.DOCKER_DEFAULT_IMAGE, port_bindings={80: 8080}):
+    def create_container(self, image_str, port_bindings={80: 8080}):
         """Creates a new container with elevated privileges. Returns the container ID. Maps port 80 of container
         to 8080 of locahost by default"""
 
-        Log.write_log("Using image {0}".format(image_id))
+        docker_image = DockerImage.from_string(image_str)
+
+        image = docker_image.image_id if docker_image.image_id is not Constants.DockerNonExistentTag \
+            else docker_image.image_tag
+
+        Log.write_log("Using image {0}".format(image))
         hc = self.client.create_host_config(privileged=True, port_bindings=port_bindings)
-        container = self.client.create_container(image=image_id, command="/bin/bash", tty=True, detach=True, ports=[80],
+        container = self.client.create_container(image=image, command="/bin/bash", tty=True, detach=True, ports=[80],
                                                  host_config=hc)
         return container.get("Id")
 
@@ -102,22 +107,28 @@ class Docker:
 
             # Return image ID. It's a hack around the fact that docker-py's build image command doesn't return an image
             # id.
-            exp = r'[a-z0-9]{12}'
-            image_id = re.findall(exp, str(last_line))[0]
+            image_id = get_docker_image_id_from_string(str(last_line))
             Log.write_log(Docker.LOG_TAG + "Image ID: {0}".format(image_id))
-            return [image_id, image_tag]
-        except (Docker.ImageBuildException, IndexError) as e:
-            print("ERROR {0}".format(e))
-            return None
+            return str(DockerImage(image_id, image_tag))
 
-    def image_exists(self, image_id):
-        """Checks if an image with the given ID exists locally."""
+        except (Docker.ImageBuildException, IndexError) as e:
+            raise Docker.ImageBuildException(e)
+
+    def image_exists(self, image_str):
+        """Checks if an image with the given ID/tag exists locally."""
+        docker_image = DockerImage.from_string(image_str)
+
+        if docker_image.image_id is Constants.DockerNonExistentTag \
+                and docker_image.image_tag is Constants.DockerNonExistentTag:
+            raise InvalidDockerImageException("Neither image_id nor image_tag provided.")
+
         for image in self.client.images():
             some_id = image["Id"]
             some_tags = image["RepoTags"]
-            if image_id in some_id[:(Constants.DOCKER_PY_IMAGE_ID_PREFIX_LENGTH + Constants.DOKCER_IMAGE_ID_LENGTH)]:
+            if docker_image.image_id in \
+                    some_id[:(Constants.DOCKER_PY_IMAGE_ID_PREFIX_LENGTH + Constants.DOKCER_IMAGE_ID_LENGTH)]:
                 return True
-            if image_id in some_tags:
+            if docker_image.image_tag in some_tags:
                 return True
         return False
 
@@ -160,3 +171,58 @@ class Docker:
             if ip_address.startswith("1") is True:
                 break
         return ip_address
+
+
+def get_docker_image_id_from_string(some_string):
+    exp = r'[a-z0-9]{12}'
+    matches = re.findall(exp, some_string)
+    if len(matches) is 0:
+        return None
+    else:
+        return matches[0]
+
+
+class InvalidDockerImageException(Exception):
+    def __init__(self, message):
+        super(message)
+
+
+class DockerImage:
+    def __init__(self, image_id=None, image_tag=None):
+        if image_id in [None, Constants.DockerNonExistentTag] and image_tag in [None, Constants.DockerNonExistentTag]:
+            raise InvalidDockerImageException("Both image_id and image_tag cannot be None.")
+
+        self.image_id = image_id if image_id is not None else Constants.DockerNonExistentTag
+        self.image_tag = image_tag if image_tag is not None else Constants.DockerNonExistentTag
+
+    def __str__(self):
+        if self.image_id is Constants.DockerNonExistentTag and self.image_tag is Constants.DockerNonExistentTag:
+            raise InvalidDockerImageException(
+                "Cannot serialize DockerImage object because both image_id and image_tag are None.")
+
+        return "{0}{1}{2}".format(self.image_id, Constants.DockerImageDelimiter, self.image_tag)
+
+    @staticmethod
+    def from_string(serialized_docker_image):
+        temp = serialized_docker_image.split(Constants.DockerImageDelimiter)
+
+        if len(temp) is 2:
+            return DockerImage(image_id=temp[0], image_tag=temp[1])
+
+        if len(temp) > 2 or len(temp) is 0:
+            raise InvalidDockerImageException("Unexpected format, cannot serialize to DockerImage.")
+
+        temp = temp[0]
+        # Figure out if temp is image_id or image_name.
+        if DockerImage.looks_like_image_id(temp):
+            return DockerImage(image_id=temp)
+        else:
+            return DockerImage(image_tag=temp)
+
+    @staticmethod
+    def looks_like_image_id(some_string):
+        possible_image_id = get_docker_image_id_from_string(some_string)
+        if some_string is possible_image_id:
+            return True
+        else:
+            return False

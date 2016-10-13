@@ -8,6 +8,8 @@ import time
 import uuid
 import webbrowser
 import urllib2
+
+from MolnsLib.Constants import Constants
 from ssh import SSH
 from DockerSSH import DockerSSH
 
@@ -32,7 +34,7 @@ class SSHDeploy:
     DEFAULT_SSH_PORT = 22
     DEFAULT_IPCONTROLLER_PORT = 9000
 
-    DEFAULT_PYURDME_TEMPDIR="/mnt/pyurdme_tmp"
+    DEFAULT_PYURDME_TEMPDIR = "/mnt/pyurdme_tmp"
 
     def __init__(self, ssh, config=None, config_dir=None):
         if config is None:
@@ -50,15 +52,16 @@ class SSHDeploy:
         self.ssh = ssh
         self.profile = 'default'
         self.profile_dir = "/home/%s/.ipython/profile_default/" % (self.username)
-        self.ipengine_env = 'export INSTANT_OS_CALL_METHOD=SUBPROCESS;export PYURDME_TMPDIR={0};'.format(self.DEFAULT_PYURDME_TEMPDIR)
+        self.ipengine_env = 'export INSTANT_OS_CALL_METHOD=SUBPROCESS;export PYURDME_TMPDIR={0};'.format(
+            self.DEFAULT_PYURDME_TEMPDIR)
         self.profile_dir_server = self.profile_dir
         self.profile_dir_client = self.profile_dir
         self.ipython_port = self.DEFAULT_IPCONTROLLER_PORT
 
-    def scp_command(self, hostname):    
+    def scp_command(self, hostname):
         return "scp -o 'StrictHostKeyChecking no' \
                 %s@%s:%ssecurity/ipcontroller-engine.json %ssecurity/" \
-                %(self.username, hostname, self.profile_dir_server, self.profile_dir_client)
+               % (self.username, hostname, self.profile_dir_server, self.profile_dir_client)
 
     def prompt_for_password(self):
         import getpass
@@ -78,7 +81,7 @@ class SSHDeploy:
         user_cert = cert_directory + '{0}-user_cert.pem'.format(cert_name_prefix)
         ssl_key = cert_directory + '{0}-ssl_key.pem'.format(cert_name_prefix)
         ssl_cert = cert_directory + '{0}-ssl_cert.pem'.format(cert_name_prefix)
-        ssl_subj = "/C=CN/ST=SH/L=STAR/O=Dis/CN=%s" % hostname 
+        ssl_subj = "/C=CN/ST=SH/L=STAR/O=Dis/CN=%s" % hostname
         self.ssh.exec_command(
             "openssl req -new -newkey rsa:4096 -days 365 "
             '-nodes -x509 -subj %s -keyout %s -out %s' %
@@ -101,55 +104,55 @@ class SSHDeploy:
                 sha1pass = sha1pass_out[0].strip()
             else:
                 sha1pass = sha1pass_out.strip()
-            Utils.print_d("SHA1PASS_OUT: " + sha1pass_out)
-            Utils.print_d("SHA1PASS: " + sha1pass)
+            Utils.Log.write_log("SHA1PASS_OUT: " + sha1pass_out)
+            Utils.Log.write_log("SHA1PASS: " + sha1pass)
         except Exception as e:
             print "Failed: {0}\t{1}:{2}".format(e, hostname, self.ssh_endpoint)
             raise e
         sftp = self.ssh.open_sftp()
         notebook_config_file = sftp.file(remote_file_name, 'w+')
-        notebook_config_file.write('\n'.join([ 
-                "c = get_config()",
-                "c.IPKernelApp.pylab = 'inline'",
-                "c.NotebookApp.certfile = u'%s'" % ssl_cert,
-                "c.NotebookApp.keyfile =  u'%s'" % ssl_key,
-                "c.NotebookApp.ip = '*'",
-                "c.NotebookApp.open_browser = False",
-                "c.NotebookApp.password = u'%s'" % sha1pass,
-                "c.NotebookApp.port = %d" % int(notebook_port),
-                #"c.Global.exec_lines = ['import dill', 'from IPython.utils import pickleutil', 'pickleutil.use_dill()', 'import logging','logging.getLogger(\'UFL\').setLevel(logging.ERROR)','logging.getLogger(\'FFC\').setLevel(logging.ERROR)']",
-                ]))
+        notebook_config_file.write('\n'.join([
+            "c = get_config()",
+            "c.IPKernelApp.pylab = 'inline'",
+            "c.NotebookApp.certfile = u'%s'" % ssl_cert,
+            "c.NotebookApp.keyfile =  u'%s'" % ssl_key,
+            "c.NotebookApp.ip = '*'",
+            "c.NotebookApp.open_browser = False",
+            "c.NotebookApp.password = u'%s'" % sha1pass,
+            "c.NotebookApp.port = %d" % int(notebook_port),
+            # "c.Global.exec_lines = ['import dill', 'from IPython.utils import pickleutil', 'pickleutil.use_dill()', 'import logging','logging.getLogger(\'UFL\').setLevel(logging.ERROR)','logging.getLogger(\'FFC\').setLevel(logging.ERROR)']",
+        ]))
         notebook_config_file.close()
-        
-        remote_file_name='%sipcontroller_config.py' % self.profile_dir_server
+
+        remote_file_name = '%sipcontroller_config.py' % self.profile_dir_server
         notebook_config_file = sftp.file(remote_file_name, 'w+')
         notebook_config_file.write('\n'.join([
-                "c = get_config()",
-                "c.IPControllerApp.log_level=20",
-                "c.HeartMonitor.period=10000",
-                "c.HeartMonitor.max_heartmonitor_misses=10",
-                ]))
+            "c = get_config()",
+            "c.IPControllerApp.log_level=20",
+            "c.HeartMonitor.period=10000",
+            "c.HeartMonitor.max_heartmonitor_misses=10",
+        ]))
         notebook_config_file.close()
 
         # IPython startup code
-        remote_file_name='{0}startup/molns_dill_startup.py'.format(self.profile_dir_server)
+        remote_file_name = '{0}startup/molns_dill_startup.py'.format(self.profile_dir_server)
         dill_init_file = sftp.file(remote_file_name, 'w+')
         dill_init_file.write('\n'.join([
-                'import dill',
-                'from IPython.utils import pickleutil',
-                'pickleutil.use_dill()',
-                'import logging',
-                "logging.getLogger('UFL').setLevel(logging.ERROR)",
-                "logging.getLogger('FFC').setLevel(logging.ERROR)"
-                "import cloud",
-                "logging.getLogger('Cloud').setLevel(logging.ERROR)"
-                ]))
+            'import dill',
+            'from IPython.utils import pickleutil',
+            'pickleutil.use_dill()',
+            'import logging',
+            "logging.getLogger('UFL').setLevel(logging.ERROR)",
+            "logging.getLogger('FFC').setLevel(logging.ERROR)"
+            "import cloud",
+            "logging.getLogger('Cloud').setLevel(logging.ERROR)"
+        ]))
         dill_init_file.close()
         sftp.close()
 
     def create_s3_config(self):
         sftp = self.ssh.open_sftp()
-        remote_file_name='.molns/s3.json'
+        remote_file_name = '.molns/s3.json'
         s3_config_file = sftp.file(remote_file_name, 'w')
         config = {}
         config["provider_type"] = self.config.type
@@ -169,21 +172,22 @@ class SSHDeploy:
                 wfd.write(new_id)
         with open(filename) as fd:
             idstr = fd.readline().rstrip()
-            logging.debug("get_cluster_id() file {0} found id = {1}".format(filename,idstr))
+            logging.debug("get_cluster_id() file {0} found id = {1}".format(filename, idstr))
             if idstr is None or len(idstr) == 0:
-                raise SSHDeployException("error getting id for cluster from file, please check your file '{0}'".format(filename))
+                raise SSHDeployException(
+                    "error getting id for cluster from file, please check your file '{0}'".format(filename))
             return idstr
 
     def create_engine_config(self):
         sftp = self.ssh.open_sftp()
-        remote_file_name='%sipengine_config.py' % self.profile_dir_server
+        remote_file_name = '%sipengine_config.py' % self.profile_dir_server
         notebook_config_file = sftp.file(remote_file_name, 'w+')
         notebook_config_file.write('\n'.join([
-                "c = get_config()",
-                "c.IPEngineApp.log_level=20",
-                "c.IPEngineApp.log_to_file = True",
-                "c.Global.exec_lines = ['import dill', 'from IPython.utils import pickleutil', 'pickleutil.use_dill()']",
-                ]))
+            "c = get_config()",
+            "c.IPEngineApp.log_level=20",
+            "c.IPEngineApp.log_to_file = True",
+            "c.Global.exec_lines = ['import dill', 'from IPython.utils import pickleutil', 'pickleutil.use_dill()']",
+        ]))
         notebook_config_file.close()
         sftp.close()
         self.create_s3_config()
@@ -196,7 +200,7 @@ class SSHDeploy:
         engine_file.close()
         sftp.close()
         return file_data
-    
+
     def _put_ipython_client_file(self, file_data):
         sftp = self.ssh.open_sftp()
         engine_file = sftp.file(self.profile_dir_server + 'security/ipcontroller-client.json', 'w+')
@@ -212,7 +216,7 @@ class SSHDeploy:
         engine_file.close()
         sftp.close()
         return file_data
-    
+
     def _put_ipython_engine_file(self, file_data):
         sftp = self.ssh.open_sftp()
         engine_file = sftp.file(self.profile_dir_server + 'security/ipcontroller-engine.json', 'w+')
@@ -223,7 +227,7 @@ class SSHDeploy:
     def exec_command_list_switch(self, command_list):
         for command in command_list:
             self.ssh.exec_command(command)
-            
+
     def connect(self, instance, port=None):
         if port is None:
             port = self.ssh_endpoint
@@ -249,9 +253,14 @@ class SSHDeploy:
             self.ssh.exec_command("sudo rm -rf /usr/local/molns_webroot")
             self.ssh.exec_command("sudo mkdir -p /usr/local/molns_webroot")
             self.ssh.exec_command("sudo chown ubuntu /usr/local/molns_webroot")
-            self.ssh.exec_command("git clone https://github.com/Molns/MOLNS_web_landing_page.git /usr/local/molns_webroot")
-            self.ssh.exec_multi_command("cd /usr/local/molns_webroot; python -m SimpleHTTPServer {0} > ~/.molns_webserver.log 2>&1 &".format(self.DEFAULT_PRIVATE_WEBSERVER_PORT), '\n')
-            self.ssh.exec_command("sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport {0} -j REDIRECT --to-port {1}".format(self.DEFAULT_PUBLIC_WEBSERVER_PORT, self.DEFAULT_PRIVATE_WEBSERVER_PORT))
+            self.ssh.exec_command(
+                "git clone https://github.com/Molns/MOLNS_web_landing_page.git /usr/local/molns_webroot")
+            self.ssh.exec_multi_command(
+                "cd /usr/local/molns_webroot; python -m SimpleHTTPServer {0} > ~/.molns_webserver.log 2>&1 &".format(
+                    self.DEFAULT_PRIVATE_WEBSERVER_PORT), '\n')
+            self.ssh.exec_command(
+                "sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport {0} -j REDIRECT --to-port {1}".format(
+                    self.DEFAULT_PUBLIC_WEBSERVER_PORT, self.DEFAULT_PRIVATE_WEBSERVER_PORT))
             self.ssh.close()
             print "Deploying MOLNs webserver"
             url = "http://{0}/".format(ip_address)
@@ -262,7 +271,7 @@ class SSHDeploy:
                     sys.stdout.flush()
                     break
                 except Exception as e:
-                    #sys.stdout.write("{0}".format(e))
+                    # sys.stdout.write("{0}".format(e))
                     sys.stdout.write(".")
                     sys.stdout.flush()
                     time.sleep(1)
@@ -286,7 +295,8 @@ class SSHDeploy:
             print "Configure Nginx"
             (ssl_key, ssl_cert) = self.create_ssl_cert('/home/ubuntu/.nginx_cert/', 'stochss', ip_address)
             sftp = self.ssh.open_sftp()
-            with open(os.path.dirname(os.path.abspath(__file__))+os.sep+'..'+os.sep+'templates'+os.sep+'nginx.conf') as fd:
+            with open(os.path.dirname(
+                    os.path.abspath(__file__)) + os.sep + '..' + os.sep + 'templates' + os.sep + 'nginx.conf') as fd:
                 web_file = sftp.file("/tmp/nginx.conf", 'w+')
                 buff = fd.read()
                 buff = string.replace(buff, '###LISTEN_PORT###', str(port))
@@ -312,14 +322,15 @@ class SSHDeploy:
                     req = urllib2.urlopen(stochss_url)
                     break
                 except Exception as e:
-                    #sys.stdout.write("{0}".format(e))
+                    # sys.stdout.write("{0}".format(e))
                     sys.stdout.write(".")
                     sys.stdout.flush()
                     time.sleep(1)
             print "Success!"
             print "Configuring StochSS"
             admin_token = uuid.uuid4()
-            create_and_exchange_admin_token = "python /usr/local/stochss/generate_admin_token.py {0}".format(admin_token)
+            create_and_exchange_admin_token = "python /usr/local/stochss/generate_admin_token.py {0}".format(
+                admin_token)
             self.ssh.exec_command(create_and_exchange_admin_token)
             time.sleep(1)
             stochss_url = "{0}login?secret_key={1}".format(stochss_url, admin_token)
@@ -335,44 +346,65 @@ class SSHDeploy:
         try:
             print "{0}:{1}".format(ip_address, self.ssh_endpoint)
             self.connect(instance, self.ssh_endpoint)
-            
+
             # Set up the symlink to local scratch space
             self.ssh.exec_command("sudo mkdir -p /mnt/molnsarea")
             self.ssh.exec_command("sudo chown ubuntu /mnt/molnsarea")
             self.ssh.exec_command("sudo mkdir -p /mnt/molnsarea/cache")
             self.ssh.exec_command("sudo chown ubuntu /mnt/molnsarea/cache")
 
-            self.ssh.exec_command("test -e {0} && sudo rm {0} ; sudo ln -s /mnt/molnsarea {0}".format('/home/ubuntu/localarea'))
-            
+            self.ssh.exec_command(
+                "test -e {0} && sudo rm {0} ; sudo ln -s /mnt/molnsarea {0}".format('/home/ubuntu/localarea'))
+
             # Setup symlink to the shared scratch space
             self.ssh.exec_command("sudo mkdir -p /mnt/molnsshared")
             self.ssh.exec_command("sudo chown ubuntu /mnt/molnsshared")
-            self.ssh.exec_command("test -e {0} && sudo rm {0} ; sudo ln -s /mnt/molnsshared {0}".format('/home/ubuntu/shared'))
+            self.ssh.exec_command(
+                "test -e {0} && sudo rm {0} ; sudo ln -s /mnt/molnsshared {0}".format('/home/ubuntu/shared'))
             #
             self.ssh.exec_command("sudo mkdir -p {0}".format(self.DEFAULT_PYURDME_TEMPDIR))
             self.ssh.exec_command("sudo chown ubuntu {0}".format(self.DEFAULT_PYURDME_TEMPDIR))
             #
-            #self.exec_command("cd /usr/local/molnsutil && git pull && sudo python setup.py install")
+            # self.exec_command("cd /usr/local/molnsutil && git pull && sudo python setup.py install")
             self.ssh.exec_command("mkdir -p .molns")
             self.create_s3_config()
 
             self.ssh.exec_command("ipython profile create {0}".format(self.profile))
             self.create_ipython_config(ip_address, notebook_password)
             self.create_engine_config()
-            self.ssh.exec_command("source /usr/local/pyurdme/pyurdme_init; screen -d -m ipcontroller --profile={1} --ip='*' --location={0} --port={2} --log-to-file".format(ip_address, self.profile, self.ipython_port), '\n')
-            # Start one ipengine per processor
-            num_procs = self.get_number_processors()
-            num_engines = num_procs - 2
-            for _ in range(num_engines):
-                self.ssh.exec_command("{1}source /usr/local/pyurdme/pyurdme_init; screen -d -m ipengine --profile={0} --debug".format(self.profile, self.ipengine_env))
-            self.ssh.exec_command("{1}source /usr/local/pyurdme/pyurdme_init; screen -d -m ipython notebook --profile={0}".format(self.profile, self.ipengine_env))
-            self.ssh.exec_command("sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport {0} -j REDIRECT --to-port {1}".format(self.DEFAULT_PUBLIC_NOTEBOOK_PORT,self.DEFAULT_PRIVATE_NOTEBOOK_PORT))
-            self.ssh.close()
+
+            # If provider is Docker, then ipython controller and ipengines aren't started
+
+            if instance.provider_type != Constants.DockerProvider:
+                Utils.Log.write_log("Provider type is NOT Docker.")
+                self.ssh.exec_command(
+                    "source /usr/local/pyurdme/pyurdme_init; screen -d -m ipcontroller --profile={1} --ip='*' --location={0} --port={2}--log-to-file".format(
+                        ip_address, self.profile, self.ipython_port), '\n')
+                # Start one ipengine per processor
+                num_procs = self.get_number_processors()
+                num_engines = num_procs - 2
+                for _ in range(num_engines):
+                    self.ssh.exec_command(
+                        "{1}source /usr/local/pyurdme/pyurdme_init; screen -d -m ipengine --profile={0} --debug".format(
+                            self.profile, self.ipengine_env))
+
+            self.ssh.exec_command(
+                "{1}source /usr/local/pyurdme/pyurdme_init; screen -d -m ipython notebook --profile={0}".format(
+                    self.profile, self.ipengine_env))
+
+            self.ssh.exec_command(
+                "sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport {0} -j REDIRECT --to-port {1}".format(
+                    self.DEFAULT_PUBLIC_NOTEBOOK_PORT, self.DEFAULT_PRIVATE_NOTEBOOK_PORT))
+
         except Exception as e:
             print "Failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
             raise sys.exc_info()[1], None, sys.exc_info()[2]
-        url = "http://%s" %(ip_address)
-        print "\nThe URL for your MOLNs cluster is: %s." % url
+
+        finally:
+            self.ssh.close()
+
+        url = "http://%s" % (ip_address)
+        print "\nThe URL for your MOLNs head node is: %s." % url
 
     def get_ipython_engine_file(self, ip_address):
         try:
@@ -396,30 +428,28 @@ class SSHDeploy:
             print "Failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
             raise sys.exc_info()[1], None, sys.exc_info()[2]
 
-
     def deploy_ipython_engine(self, ip_address, controler_ip, engine_file_data, controller_ssh_keyfile):
         try:
             print "{0}:{1}".format(ip_address, self.ssh_endpoint)
             self.connect(ip_address, self.ssh_endpoint)
-            
+
             # Setup the symlink to local scratch space
             self.ssh.exec_command("sudo mkdir -p /mnt/molnsarea")
             self.ssh.exec_command("sudo chown ubuntu /mnt/molnsarea")
             self.ssh.exec_command("sudo mkdir -p /mnt/molnsarea/cache")
             self.ssh.exec_command("sudo chown ubuntu /mnt/molnsarea/cache")
 
-
-            self.ssh.exec_command("test -e {0} && sudo rm {0} ; sudo ln -s /mnt/molnsarea {0}".format('/home/ubuntu/localarea'))
+            self.ssh.exec_command(
+                "test -e {0} && sudo rm {0} ; sudo ln -s /mnt/molnsarea {0}".format('/home/ubuntu/localarea'))
             #
             self.ssh.exec_command("sudo mkdir -p {0}".format(self.DEFAULT_PYURDME_TEMPDIR))
             self.ssh.exec_command("sudo chown ubuntu {0}".format(self.DEFAULT_PYURDME_TEMPDIR))
             # Setup config for object store
             self.ssh.exec_command("mkdir -p .molns")
             self.create_s3_config()
-            
-            
+
             # SSH mount the controller on each engine
-            remote_file_name='.ssh/id_dsa'
+            remote_file_name = '.ssh/id_dsa'
             with open(controller_ssh_keyfile) as fd:
                 sftp = self.ssh.open_sftp()
                 controller_keyfile = sftp.file(remote_file_name, 'w')
@@ -431,10 +461,12 @@ class SSHDeploy:
                 sftp.close()
             self.ssh.exec_command("chmod 0600 {0}".format(remote_file_name))
             self.ssh.exec_command("mkdir -p /home/ubuntu/shared")
-            self.ssh.exec_command("sshfs -o Ciphers=arcfour -o Compression=no -o reconnect -o idmap=user -o StrictHostKeyChecking=no ubuntu@{0}:/mnt/molnsshared /home/ubuntu/shared".format(controler_ip))
+            self.ssh.exec_command(
+                "sshfs -o Ciphers=arcfour -o Compression=no -o reconnect -o idmap=user -o StrictHostKeyChecking=no ubuntu@{0}:/mnt/molnsshared /home/ubuntu/shared".format(
+                    controler_ip))
 
             # Update the Molnsutil package: TODO remove when molnsutil is stable
-            #self.exec_command("cd /usr/local/molnsutil && git pull && sudo python setup.py install")
+            # self.exec_command("cd /usr/local/molnsutil && git pull && sudo python setup.py install")
 
             self.ssh.exec_command("ipython profile create {0}".format(self.profile))
             self.create_engine_config()
@@ -442,7 +474,9 @@ class SSHDeploy:
             self._put_ipython_engine_file(engine_file_data)
             # Start one ipengine per processor
             for _ in range(self.get_number_processors()):
-                self.ssh.exec_command("{1}source /usr/local/pyurdme/pyurdme_init; screen -d -m ipengine --profile={0} --debug".format(self.profile,  self.ipengine_env))
+                self.ssh.exec_command(
+                    "{1}source /usr/local/pyurdme/pyurdme_init; screen -d -m ipengine --profile={0} --debug".format(
+                        self.profile, self.ipengine_env))
 
             self.ssh.close()
 

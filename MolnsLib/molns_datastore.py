@@ -90,7 +90,8 @@ class Instance(Base):
     provider_id = Column(Integer)
     ip_address = Column(String)
     provider_instance_identifier = Column(String)
-    
+    provider_type = Column(String)
+
     def __str__(self):
         return "Instance({0}): provider_instance_identifier={1} provider_id={2} controller_id={3} worker_group_id={4}".format(self.id, self.provider_instance_identifier, self.provider_id, self.controller_id, self.worker_group_id)
 
@@ -339,11 +340,12 @@ class Datastore():
         """ Create or get the value for an instance. """
         return self.session.query(Instance).filter_by(id=id).first()
     
-    def get_instance(self, provider_instance_identifier, ip_address, provider_id=None, controller_id=None, worker_group_id=None):
+    def get_instance(self, provider_instance_identifier, ip_address, provider_id=None, controller_id=None,
+                     worker_group_id=None, provider_type=None):
         """ Create or get the value for an instance. """
         p = self.session.query(Instance).filter_by(provider_instance_identifier=provider_instance_identifier).first()
         if p is None:
-            p = Instance(provider_instance_identifier=provider_instance_identifier, ip_address=ip_address, provider_id=provider_id, controller_id=controller_id, worker_group_id=worker_group_id)
+            p = Instance(provider_instance_identifier=provider_instance_identifier, ip_address=ip_address, provider_id=provider_id, controller_id=controller_id, worker_group_id=worker_group_id, provider_type=provider_type)
             self.session.add(p)
             self.session.commit()
             #logging.debug("Creating instance: {0}".format(p))
