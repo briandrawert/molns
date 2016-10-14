@@ -128,7 +128,7 @@ def get_provider_handle(kind, ptype):
     pkg_name = "MolnsLib.{0}Provider".format(ptype)
     if pkg_name not in sys.modules:
         logging.debug("loading {0} from {1}".format(cls_name, pkg_name))
-    pkg = dynamic_module_import(pkg_name)
+    # pkg = dynamic_module_import(pkg_name)
     pkg = dynamic_module_import(pkg_name)
     try:
         #logging.debug("dir(pkg={0})={1}".format(pkg, dir(pkg)))

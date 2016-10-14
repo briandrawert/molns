@@ -246,8 +246,12 @@ class SSHDeploy:
                 time.sleep(self.SSH_CONNECT_WAITTIME)
         raise SSHDeployException("ssh connect Failed!!!\t{0}:{1}".format(instance.ip_address, self.ssh_endpoint))
 
-    def deploy_molns_webserver(self, instance):
+    def deploy_molns_webserver(self, instance, controller_obj):
         ip_address = instance.ip_address
+
+        if instance.provider_type == Constants.DockerProvider:
+            ip_address = "0.0.0.0:{0}".format(controller_obj.config["web_server_port"])
+
         try:
             self.connect(instance, self.ssh_endpoint)
             self.ssh.exec_command("sudo rm -rf /usr/local/molns_webroot")
@@ -255,6 +259,14 @@ class SSHDeploy:
             self.ssh.exec_command("sudo chown ubuntu /usr/local/molns_webroot")
             self.ssh.exec_command(
                 "git clone https://github.com/Molns/MOLNS_web_landing_page.git /usr/local/molns_webroot")
+
+            # If DockerProvider, replace index page.
+            if instance.provider_type == Constants.DockerProvider:
+                from molns_landing_page import MolnsLandingPage
+                from pipes import quote
+                index_page = MolnsLandingPage(controller_obj.config["notebook_port"]).molns_landing_page
+                self.ssh.exec_command("echo {0} > /usr/local/molns_webroot/index.html".format(quote(index_page)))
+
             self.ssh.exec_multi_command(
                 "cd /usr/local/molns_webroot; python -m SimpleHTTPServer {0} > ~/.molns_webserver.log 2>&1 &".format(
                     self.DEFAULT_PRIVATE_WEBSERVER_PORT), '\n')
@@ -271,7 +283,6 @@ class SSHDeploy:
                     sys.stdout.flush()
                     break
                 except Exception as e:
-                    # sys.stdout.write("{0}".format(e))
                     sys.stdout.write(".")
                     sys.stdout.flush()
                     time.sleep(1)
@@ -403,7 +414,7 @@ class SSHDeploy:
         finally:
             self.ssh.close()
 
-        url = "http://%s" % (ip_address)
+        url = "https://%s" % (ip_address)
         print "\nThe URL for your MOLNs head node is: %s." % url
 
     def get_ipython_engine_file(self, ip_address):

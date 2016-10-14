@@ -14,7 +14,8 @@ class ProviderBase:
     STATUS_STOPPED = 'stopped'
     STATUS_TERMINATED = 'terminated'
 
-    SecurityGroupRule = collections.namedtuple("SecurityGroupRule", ["ip_protocol", "from_port", "to_port", "cidr_ip", "src_group_name"])
+    SecurityGroupRule = collections.namedtuple("SecurityGroupRule", ["ip_protocol", "from_port", "to_port", "cidr_ip",
+                                                                     "src_group_name"])
 
     FIREWALL_RULES = [
         SecurityGroupRule("tcp", "22", "22", "0.0.0.0/0", None),

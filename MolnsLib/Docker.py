@@ -2,6 +2,7 @@ import logging
 import re
 import time
 
+from MolnsLib import ssh_deploy
 from MolnsLib.Utils import Log
 from molns_provider import ProviderBase
 from Constants import Constants
@@ -26,7 +27,8 @@ class Docker:
         self.build_count = 0
         logging.basicConfig(level=logging.DEBUG)
 
-    def create_container(self, image_str, port_bindings={80: 8080}):
+    def create_container(self, image_str, port_bindings={ssh_deploy.SSHDeploy.DEFAULT_PUBLIC_WEBSERVER_PORT: 8080,
+                                                         ssh_deploy.SSHDeploy.DEFAULT_PRIVATE_NOTEBOOK_PORT: 8081}):
         """Creates a new container with elevated privileges. Returns the container ID. Maps port 80 of container
         to 8080 of locahost by default"""
 
@@ -37,8 +39,9 @@ class Docker:
 
         Log.write_log("Using image {0}".format(image))
         hc = self.client.create_host_config(privileged=True, port_bindings=port_bindings)
-        container = self.client.create_container(image=image, command="/bin/bash", tty=True, detach=True, ports=[80],
-                                                 host_config=hc)
+        container = self.client.create_container(image=image, command="/bin/bash", tty=True, detach=True, ports=[
+           ssh_deploy.SSHDeploy.DEFAULT_PUBLIC_WEBSERVER_PORT, ssh_deploy.SSHDeploy.DEFAULT_PRIVATE_NOTEBOOK_PORT
+        ], host_config=hc)
         return container.get("Id")
 
     def stop_containers(self, container_ids):

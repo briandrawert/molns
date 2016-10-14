@@ -7,6 +7,8 @@ import installSoftware
 import tempfile
 from DockerSSH import DockerSSH
 from collections import OrderedDict
+
+from MolnsLib import ssh_deploy
 from molns_provider import ProviderBase, ProviderException
 
 
@@ -33,7 +35,12 @@ class DockerBase(ProviderBase):
         """ Start given number of (or 1) containers. """
         started_containers = []
         for i in range(num):
-            container_id = self.docker.create_container(self.provider.config["molns_image_name"])
+            container_id = self.docker.create_container(self.provider.config["molns_image_name"],
+                                                        port_bindings={
+                                                            ssh_deploy.SSHDeploy.DEFAULT_PUBLIC_WEBSERVER_PORT:
+                                                                self.config['web_server_port'],
+                                                        ssh_deploy.SSHDeploy.DEFAULT_PRIVATE_NOTEBOOK_PORT:
+                                                            self.config['notebook_port']})
             stored_container = self.datastore.get_instance(provider_instance_identifier=container_id,
                                                            ip_address=self.docker.get_container_ip_address(container_id)
                                                            , provider_id=self.provider.id, controller_id=self.id,
@@ -204,6 +211,12 @@ class DockerController(DockerBase):
     OBJ_NAME = 'DockerController'
 
     CONFIG_VARS = OrderedDict([
+        ('web_server_port',
+         {'q': 'Port to use for web server', 'default': "8080",
+          'ask': True}),
+        ('notebook_port',
+         {'q': 'Port to use for jupyter notebook', 'default': "8081",
+          'ask': True})
     ])
 
     def get_instance_status(self, instance):

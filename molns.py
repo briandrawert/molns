@@ -461,7 +461,7 @@ class MOLNSController(MOLNSbase):
         # deploying
         sshdeploy = SSHDeploy(controller_obj.ssh, config=controller_obj.provider, config_dir=config.config_dir)
         sshdeploy.deploy_ipython_controller(inst, notebook_password=password)
-        sshdeploy.deploy_molns_webserver(inst)
+        sshdeploy.deploy_molns_webserver(inst, controller_obj)
         # sshdeploy.deploy_stochss(inst.ip_address, port=443)
 
     @classmethod
