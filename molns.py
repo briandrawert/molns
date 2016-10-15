@@ -1215,7 +1215,11 @@ class MOLNSInstances(MOLNSbase):
         if len(instance_list) > 0:
             table_data = []
             for i in instance_list:
-                provider_name = config.get_object_by_id(i.provider_id, 'Provider').name
+                provider_obj = config.get_object_by_id(i.provider_id, 'Provider')
+                if provider_obj is None:
+                    continue
+                provider_name = provider_obj.name
+                #print "provider_obj.type",provider_obj.type
                 if i.worker_group_id is not None:
                     name = config.get_object_by_id(i.worker_id, 'WorkerGroup').name
                     itype = 'worker'
