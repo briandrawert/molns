@@ -248,9 +248,11 @@ class SSHDeploy:
 
     def deploy_molns_webserver(self, instance, controller_obj):
         ip_address = instance.ip_address
+        logging.debug('deploy_molns_webserver(): controller_obj.provider.type={0}\n',controller_obj.provider.type)
 
-        if instance.provider_type == Constants.DockerProvider:
+        if controller_obj.provider.type == Constants.DockerProvider:
             ip_address = "0.0.0.0:{0}".format(controller_obj.config["web_server_port"])
+        logging.debug('deploy_molns_webserver(): ip_address={0}\n',ip_address)
 
         try:
             self.connect(instance, self.ssh_endpoint)
@@ -261,7 +263,7 @@ class SSHDeploy:
                 "git clone https://github.com/Molns/MOLNS_web_landing_page.git /usr/local/molns_webroot")
 
             # If DockerProvider, replace index page.
-            if instance.provider_type == Constants.DockerProvider:
+            if controller_obj.provider.type == Constants.DockerProvider:
                 from molns_landing_page import MolnsLandingPage
                 from pipes import quote
                 index_page = MolnsLandingPage(controller_obj.config["notebook_port"]).molns_landing_page
@@ -351,7 +353,7 @@ class SSHDeploy:
             print "StochSS launch failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
             raise sys.exc_info()[1], None, sys.exc_info()[2]
 
-    def deploy_ipython_controller(self, instance, notebook_password=None):
+    def deploy_ipython_controller(self, instance, controller_obj, notebook_password=None):
         ip_address = instance.ip_address
 
         try:
@@ -386,7 +388,7 @@ class SSHDeploy:
 
             # If provider is Docker, then ipython controller and ipengines aren't started
 
-            if instance.provider_type != Constants.DockerProvider:
+            if controller_obj.provider.type != Constants.DockerProvider:
                 Utils.Log.write_log("Provider type is NOT Docker.")
                 self.ssh.exec_command(
                     "source /usr/local/pyurdme/pyurdme_init; screen -d -m ipcontroller --profile={1} --ip='*' --location={0} --port={2}--log-to-file".format(
