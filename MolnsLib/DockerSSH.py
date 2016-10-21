@@ -63,7 +63,9 @@ class MockSFTPFile:
 
     def close(self):
         # Make tarfile.
-        temp_tar = "transport.tar"
+        import uuid
+        rand_str = str(uuid.uuid4())
+        temp_tar = "transport-{0}.tar".format(rand_str[:8])
         tar = tarfile.TarFile(temp_tar, "w")
         string = StringIO.StringIO()
         string.write(self.file_contents)
@@ -75,8 +77,12 @@ class MockSFTPFile:
 
         path_to_file = os.path.dirname(self.filename)
 
+        if not path_to_file.startswith("/home"):
+            path_to_file = os.path.join(self.docker.get_home_directory(self.container_id), path_to_file)
+
         with open(temp_tar, mode='rb') as f:
             tar_file_bytes = f.read()
 
+        Log.write_log("path to file: {0}".format(path_to_file))
         self.docker.put_archive(self.container_id, tar_file_bytes, path_to_file)
         os.remove(temp_tar)  # Remove temporary tar file.

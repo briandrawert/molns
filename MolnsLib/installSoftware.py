@@ -46,7 +46,7 @@ class InstallSW:
             # EC2/S3 and OpenStack APIs
             "sudo pip install boto",
             "sudo apt-get -y install pandoc",
-            # This set of packages is needed for OpenStack, as molnsutil uses them for hybrid cloud deployment
+            # This set of packages is needed for OpenStack, as molns_util uses them for hybrid cloud deployment
             "sudo apt-get -y install libxml2-dev libxslt1-dev python-dev",
             "sudo pip install python-novaclient",
             "sudo easy_install -U pip",
@@ -112,7 +112,7 @@ class InstallSW:
         [   "sudo rm -rf /usr/local/pyurdme && sudo mkdir -p /usr/local/pyurdme && sudo chown ubuntu /usr/local/pyurdme",
             "cd /usr/local/ && git clone https://github.com/MOLNs/pyurdme.git",
             #"cd /usr/local/pyurdme && git checkout develop",  # for development only
-            "cp /usr/local/pyurdme/pyurdme/data/three.js_templates/js/* $HOME/.ipython/profile_default/static/custom/", # TODO added $HOME here. Is it okay?
+            "cp /usr/local/pyurdme/pyurdme/data/three.js_templates/js/* $HOME/.ipython/profile_default/static/custom/",
             "source /usr/local/pyurdme/pyurdme_init && python -c 'import pyurdme'",
         ],
          
@@ -129,7 +129,7 @@ class InstallSW:
         "sudo pip install jsonschema jsonpointer",  #redo this install to be sure it has not been removed.
 
         
-        "sync",  # This is critial for some infrastructures.
+        "sync",  # This is critical for some infrastructures.
     ]
     
     # How many time do we try to install each package.

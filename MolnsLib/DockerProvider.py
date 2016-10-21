@@ -1,4 +1,5 @@
-import Constants
+import constants
+from constants import Constants
 import logging
 import time
 import os
@@ -35,16 +36,17 @@ class DockerBase(ProviderBase):
         """ Start given number of (or 1) containers. """
         started_containers = []
         for i in range(num):
-            container_id = self.docker.create_container(self.provider.config["molns_image_name"],
+            container_id = self.docker.create_container(self.provider.config["molns_image_name"], name=self.name,
                                                         port_bindings={
-                                                            ssh_deploy.SSHDeploy.DEFAULT_PUBLIC_WEBSERVER_PORT:
+                                                            Constants.DEFAULT_PUBLIC_WEBSERVER_PORT:
                                                                 self.config['web_server_port'],
-                                                        ssh_deploy.SSHDeploy.DEFAULT_PRIVATE_NOTEBOOK_PORT:
-                                                            self.config['notebook_port']})
+                                                        Constants.DEFAULT_PRIVATE_NOTEBOOK_PORT:
+                                                            self.config['notebook_port']},
+                                                        working_directory=self.config["working_directory"])
             stored_container = self.datastore.get_instance(provider_instance_identifier=container_id,
                                                            ip_address=self.docker.get_container_ip_address(container_id)
                                                            , provider_id=self.provider.id, controller_id=self.id,
-                                                           provider_type=Constants.Constants.DockerProvider)
+                                                           provider_type=constants.Constants.DockerProvider)
             started_containers.append(stored_container)
         if num == 1:
             return started_containers[0]
@@ -86,9 +88,10 @@ class DockerProvider(DockerBase):
 
     OBJ_NAME = 'DockerProvider'
 
+    # TODO ask user for directory to store stuff at
     CONFIG_VARS = OrderedDict([
         ('ubuntu_image_name',
-         {'q': 'Base Ubuntu image to use', 'default': Constants.Constants.DOCKER_DEFAULT_IMAGE,
+         {'q': 'Base Ubuntu image to use', 'default': constants.Constants.DOCKER_DEFAULT_IMAGE,
           'ask': True}),
         ('molns_image_name',
          {'q': 'Local MOLNs image (Docker image ID or image tag) to use ', 'default': None, 'ask': True}),
@@ -99,7 +102,7 @@ class DockerProvider(DockerBase):
         ('login_username',
          {'default': 'ubuntu', 'ask': False}),  # Unused.
         ('provider_type',
-         {'default': Constants.Constants.DockerProvider, 'ask': False})
+         {'default': constants.Constants.DockerProvider, 'ask': False})
     ])
 
     def get_config_credentials(self):
@@ -108,7 +111,7 @@ class DockerProvider(DockerBase):
     @staticmethod
     def __get_new_dockerfile_name():
         import uuid
-        filename = Constants.Constants.DOCKERFILE_NAME + str(uuid.uuid4())
+        filename = constants.Constants.DOCKERFILE_NAME + str(uuid.uuid4())
         return filename
 
     def check_ssh_key(self):
@@ -153,14 +156,14 @@ class DockerProvider(DockerBase):
 
     def _create_dockerfile(self, commands):
         """ Create Dockerfile from given commands. """
-        import pwd
+        import Utils
 
-        user_id = pwd.getpwnam(os.environ['SUDO_USER']).pw_uid
+        user_id = Utils.get_user_id()
         dockerfile = '''FROM ubuntu:14.04\nRUN apt-get update\n\n# Add user ubuntu.\nRUN useradd -u {0} -ms /bin/bash ubuntu\n
          # Set up base environment.\nRUN apt-get install -yy \ \n    software-properties-common \ \n
              python-software-properties \ \n    wget \ \n    curl \ \n   git \ \n    ipython \ \n    sudo \ \n
              screen \ \n    iptables \nRUN echo "ubuntu ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-         \nWORKDIR /home/ubuntu\n'''.format(user_id)
+         \nWORKDIR /home/ubuntu\n\nUSER ubuntu\nENV HOME /home/ubuntu'''.format(user_id)
 
         flag = False
 
@@ -183,7 +186,7 @@ class DockerProvider(DockerBase):
                 else:
                     dockerfile += ''' && \ \n    ''' + self._preprocess(entry)
 
-        dockerfile += '''\n\nUSER ubuntu\nENV HOME /home/ubuntu\nVOLUME /home/ubuntu\n'''
+        dockerfile += '''\n\n\n'''
 
         dockerfile_file = DockerProvider.__get_new_dockerfile_name()
         with open(dockerfile_file, 'w') as Dockerfile:
@@ -196,27 +199,34 @@ class DockerProvider(DockerBase):
 
     @staticmethod
     def _preprocess(command):
-        """ Filters out any "sudo" in the command, prepends "shell only" commands with '/bin/bash -c'. """
+        """ Prepends "shell only" commands with '/bin/bash -c'. """
         for shell_command in Docker.Docker.shell_commands:
             if shell_command in command:
                 replace_string = "/bin/bash -c \"" + shell_command
                 command = command.replace(shell_command, replace_string)
                 command += "\""
-        return command.replace("sudo", "")
+        return command
+
+
+def get_default_working_directory(config=None):
+    if config is None:
+        raise Exception("Config should not be None.")
+    return os.path.join(config.config_dir, "docker_controller_working_dirs", config.name)
 
 
 class DockerController(DockerBase):
     """ Provider handle for a Docker controller. """
 
     OBJ_NAME = 'DockerController'
-
     CONFIG_VARS = OrderedDict([
         ('web_server_port',
          {'q': 'Port to use for web server', 'default': "8080",
           'ask': True}),
         ('notebook_port',
          {'q': 'Port to use for jupyter notebook', 'default': "8081",
-          'ask': True})
+          'ask': True}),
+        ('working_directory',
+         {'q': 'Working directory for this controller', 'default': get_default_working_directory, 'ask': True})
     ])
 
     def get_instance_status(self, instance):

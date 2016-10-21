@@ -9,7 +9,9 @@ import uuid
 import webbrowser
 import urllib2
 
-from MolnsLib.Constants import Constants
+from constants import Constants
+
+from Docker import Docker
 from ssh import SSH
 from DockerSSH import DockerSSH
 
@@ -25,10 +27,6 @@ class SSHDeploy:
     DEFAULT_STOCHSS_PORT = 1443
     DEFAULT_INTERNAL_STOCHSS_PORT = 8080
     DEFAULT_GAE_ADMIN_PORT = 8000
-    DEFAULT_PRIVATE_NOTEBOOK_PORT = 8081
-    DEFAULT_PUBLIC_NOTEBOOK_PORT = 443
-    DEFAULT_PRIVATE_WEBSERVER_PORT = 8001
-    DEFAULT_PUBLIC_WEBSERVER_PORT = 80
     SSH_CONNECT_WAITTIME = 5
     MAX_NUMBER_SSH_CONNECT_ATTEMPTS = 25
     DEFAULT_SSH_PORT = 22
@@ -44,7 +42,7 @@ class SSHDeploy:
         if config_dir is None:
             self.config_dir = os.path.join(os.path.dirname(__file__), '/../.molns/')
         self.username = config['login_username']
-        self.endpoint = self.DEFAULT_PRIVATE_NOTEBOOK_PORT
+        self.endpoint = Constants.DEFAULT_PRIVATE_NOTEBOOK_PORT
         self.ssh_endpoint = self.DEFAULT_SSH_PORT
         self.keyfile = config.sshkeyfilename()
         if not (isinstance(ssh, SSH) or isinstance(ssh, DockerSSH)):
@@ -265,16 +263,15 @@ class SSHDeploy:
             # If DockerProvider, replace index page.
             if controller_obj.provider.type == Constants.DockerProvider:
                 from molns_landing_page import MolnsLandingPage
-                from pipes import quote
                 index_page = MolnsLandingPage(controller_obj.config["notebook_port"]).molns_landing_page
-                self.ssh.exec_command("echo {0} > /usr/local/molns_webroot/index.html".format(quote(index_page)))
+                self.ssh.exec_command("echo {0} > /usr/local/molns_webroot/index.html".format(index_page))
 
             self.ssh.exec_multi_command(
                 "cd /usr/local/molns_webroot; python -m SimpleHTTPServer {0} > ~/.molns_webserver.log 2>&1 &".format(
-                    self.DEFAULT_PRIVATE_WEBSERVER_PORT), '\n')
+                    Constants.DEFAULT_PRIVATE_WEBSERVER_PORT), '\n')
             self.ssh.exec_command(
                 "sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport {0} -j REDIRECT --to-port {1}".format(
-                    self.DEFAULT_PUBLIC_WEBSERVER_PORT, self.DEFAULT_PRIVATE_WEBSERVER_PORT))
+                    Constants.DEFAULT_PUBLIC_WEBSERVER_PORT, Constants.DEFAULT_PRIVATE_WEBSERVER_PORT))
             self.ssh.close()
             print "Deploying MOLNs webserver"
             url = "http://{0}/".format(ip_address)
@@ -353,7 +350,7 @@ class SSHDeploy:
             print "StochSS launch failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
             raise sys.exc_info()[1], None, sys.exc_info()[2]
 
-    def deploy_ipython_controller(self, instance, controller_obj, notebook_password=None):
+    def deploy_ipython_controller(self, instance, controller_obj, notebook_password=None, resume=False):
         ip_address = instance.ip_address
 
         try:
@@ -378,20 +375,30 @@ class SSHDeploy:
             self.ssh.exec_command("sudo mkdir -p {0}".format(self.DEFAULT_PYURDME_TEMPDIR))
             self.ssh.exec_command("sudo chown ubuntu {0}".format(self.DEFAULT_PYURDME_TEMPDIR))
             #
-            # self.exec_command("cd /usr/local/molnsutil && git pull && sudo python setup.py install")
-            self.ssh.exec_command("mkdir -p .molns")
-            self.create_s3_config()
+            # self.exec_command("cd /usr/local/molns_util && git pull && sudo python setup.py install")
 
-            self.ssh.exec_command("ipython profile create {0}".format(self.profile))
-            self.create_ipython_config(ip_address, notebook_password)
-            self.create_engine_config()
+            home_dir = ""
+            if controller_obj.provider.type == Constants.DockerProvider:
+                home_dir = "/home/ubuntu/"
+
+            # If its not a DockerController being resumed, then create config files and move sample notebooks to volume.
+            if not (controller_obj.provider.type == Constants.DockerProvider and resume is True):
+                self.ssh.exec_command("mkdir -p {0}.molns".format(home_dir))
+                self.create_s3_config()
+                self.ssh.exec_command("ipython profile create {0}".format(self.profile))
+                self.create_ipython_config(ip_address, notebook_password)
+                self.create_engine_config()
+                if controller_obj.provider.type == Constants.DockerProvider:
+                    self.ssh.exec_command("mv {0}*.ipynb {1}".format(home_dir,
+                                                                     Docker.get_container_volume_from_working_dir(
+                                                                         controller_obj.config["working_directory"])))
 
             # If provider is Docker, then ipython controller and ipengines aren't started
 
             if controller_obj.provider.type != Constants.DockerProvider:
-                Utils.Log.write_log("Provider type is NOT Docker.")
                 self.ssh.exec_command(
-                    "source /usr/local/pyurdme/pyurdme_init; screen -d -m ipcontroller --profile={1} --ip='*' --location={0} --port={2}--log-to-file".format(
+                    "source /usr/local/pyurdme/pyurdme_init; screen -d -m ipcontroller --profile={1} --ip='*' --location={0} "
+                    "--port={2}--log-to-file".format(
                         ip_address, self.profile, self.ipython_port), '\n')
                 # Start one ipengine per processor
                 num_procs = self.get_number_processors()
@@ -407,7 +414,7 @@ class SSHDeploy:
 
             self.ssh.exec_command(
                 "sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport {0} -j REDIRECT --to-port {1}".format(
-                    self.DEFAULT_PUBLIC_NOTEBOOK_PORT, self.DEFAULT_PRIVATE_NOTEBOOK_PORT))
+                    Constants.DEFAULT_PUBLIC_NOTEBOOK_PORT, Constants.DEFAULT_PRIVATE_NOTEBOOK_PORT))
 
         except Exception as e:
             print "Failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
@@ -478,8 +485,8 @@ class SSHDeploy:
                 "sshfs -o Ciphers=arcfour -o Compression=no -o reconnect -o idmap=user -o StrictHostKeyChecking=no ubuntu@{0}:/mnt/molnsshared /home/ubuntu/shared".format(
                     controler_ip))
 
-            # Update the Molnsutil package: TODO remove when molnsutil is stable
-            # self.exec_command("cd /usr/local/molnsutil && git pull && sudo python setup.py install")
+            # Update the Molnsutil package: TODO remove when molns_util is stable
+            # self.exec_command("cd /usr/local/molns_util && git pull && sudo python setup.py install")
 
             self.ssh.exec_command("ipython profile create {0}".format(self.profile))
             self.create_engine_config()
@@ -496,8 +503,3 @@ class SSHDeploy:
         except Exception as e:
             print "Failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
             raise sys.exc_info()[1], None, sys.exc_info()[2]
-
-
-if __name__ == "__main__":
-    sshdeploy = SSHDeploy()
-    sshdeploy.deploy_ipython_controller()

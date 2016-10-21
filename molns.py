@@ -2,7 +2,6 @@
 import os
 import sys
 
-from MolnsLib.Constants import Constants
 from MolnsLib.Utils import Log
 from MolnsLib.molns_datastore import Datastore, DatastoreException, VALID_PROVIDER_TYPES, get_provider_handle
 from MolnsLib.molns_provider import ProviderException
@@ -11,6 +10,8 @@ from MolnsLib.ssh_deploy import SSHDeploy
 import multiprocessing
 import json
 import logging
+
+from MolnsLib import constants
 
 logger = logging.getLogger()
 # logger.setLevel(logging.INFO)  #for Debugging
@@ -434,6 +435,7 @@ class MOLNSController(MOLNSbase):
     @classmethod
     def start_controller(cls, args, config, password=None):
         """ Start the MOLNs controller. """
+        resume = False
         logging.debug("MOLNSController.start_controller(args={0})".format(args))
         controller_obj = cls._get_controllerobj(args, config)
         if controller_obj is None:
@@ -452,6 +454,7 @@ class MOLNSController(MOLNSbase):
                     print "Resuming instance at {0}".format(i.ip_address)
                     controller_obj.resume_instance(i)
                     inst = i
+                    resume=True
                     break
         if inst is None:
             # Start a new instance
@@ -460,7 +463,7 @@ class MOLNSController(MOLNSbase):
 
         # deploying
         sshdeploy = SSHDeploy(controller_obj.ssh, config=controller_obj.provider, config_dir=config.config_dir)
-        sshdeploy.deploy_ipython_controller(inst, controller_obj, notebook_password=password)
+        sshdeploy.deploy_ipython_controller(inst, controller_obj, notebook_password=password, resume=resume)
         sshdeploy.deploy_molns_webserver(inst, controller_obj)
         # sshdeploy.deploy_stochss(inst.ip_address, port=443)
 
@@ -1530,7 +1533,7 @@ COMMAND_LIST = [
 ]
 
 
-def printHelp():
+def print_help():
     print "molns <command> <command-args>"
     print " --config=[Config Directory=./.molns/]"
     print "\tSpecify an alternate config location.  (Must be first argument.)"
@@ -1538,11 +1541,11 @@ def printHelp():
         print c
 
 
-def parseArgs():
+def parse_args():
     if len(sys.argv) < 2 or sys.argv[1] == '-h':
-        printHelp()
+        print_help()
         return
-    Log.verbose = False
+    Log.verbose = True
     arg_list = sys.argv[1:]
     config_dir = './.molns/'
 
@@ -1559,7 +1562,7 @@ def parseArgs():
         arg_list = arg_list[1:]
 
     if len(arg_list) == 0 or arg_list[0] == 'help' or arg_list[0] == '-h':
-        printHelp()
+        print_help()
         return
 
     if arg_list[0] in COMMAND_LIST:
@@ -1580,4 +1583,4 @@ def parseArgs():
 
 
 if __name__ == "__main__":
-    parseArgs()
+    parse_args()

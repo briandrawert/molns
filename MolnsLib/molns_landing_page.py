@@ -1,6 +1,8 @@
+from pipes import quote
+
 class MolnsLandingPage:
     def __init__(self, port):
-        self.molns_landing_page = """
+        self.molns_landing_page = quote("""
         <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <HTML lang="en">
     <HEAD>
@@ -88,4 +90,4 @@ class MolnsLandingPage:
 <div id="demo"></div>
 
 
-""".format(port)
+""".format(port))

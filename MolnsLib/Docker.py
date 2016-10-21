@@ -2,10 +2,10 @@ import logging
 import re
 import time
 
-from MolnsLib import ssh_deploy
-from MolnsLib.Utils import Log
+from Utils import Log
+import constants
 from molns_provider import ProviderBase
-from Constants import Constants
+from constants import Constants
 from docker import Client
 from docker.errors import NotFound, NullResource, APIError
 
@@ -27,22 +27,67 @@ class Docker:
         self.build_count = 0
         logging.basicConfig(level=logging.DEBUG)
 
-    def create_container(self, image_str, port_bindings={ssh_deploy.SSHDeploy.DEFAULT_PUBLIC_WEBSERVER_PORT: 8080,
-                                                         ssh_deploy.SSHDeploy.DEFAULT_PRIVATE_NOTEBOOK_PORT: 8081}):
+    @staticmethod
+    def get_container_volume_from_working_dir(working_directory):
+        import os
+        return os.path.join("/home/ubuntu/", os.path.basename(working_directory))
+
+    def create_container(self, image_str, working_directory=None, name=None,
+                         port_bindings={Constants.DEFAULT_PUBLIC_WEBSERVER_PORT: 8080,
+                                        Constants.DEFAULT_PRIVATE_NOTEBOOK_PORT: 8081}):
         """Creates a new container with elevated privileges. Returns the container ID. Maps port 80 of container
         to 8080 of locahost by default"""
 
         docker_image = DockerImage.from_string(image_str)
+        volume_dir = Docker.get_container_volume_from_working_dir(working_directory)
 
+        if name is None:
+            import uuid
+            random_str = str(uuid.uuid4())
+            name = constants.Constants.MolnsDockerContainerNamePrefix + random_str[:8]
         image = docker_image.image_id if docker_image.image_id is not Constants.DockerNonExistentTag \
             else docker_image.image_tag
 
         Log.write_log("Using image {0}".format(image))
-        hc = self.client.create_host_config(privileged=True, port_bindings=port_bindings)
-        container = self.client.create_container(image=image, command="/bin/bash", tty=True, detach=True, ports=[
-           ssh_deploy.SSHDeploy.DEFAULT_PUBLIC_WEBSERVER_PORT, ssh_deploy.SSHDeploy.DEFAULT_PRIVATE_NOTEBOOK_PORT
-        ], host_config=hc)
-        return container.get("Id")
+        import os
+        if Docker._verify_directory(working_directory) is False:
+            Log.write_log(Docker.LOG_TAG + "Unable to verify provided directory to use to as volume. Volume will NOT "
+                                           "be created.")
+            hc = self.client.create_host_config(privileged=True, port_bindings=port_bindings)
+            container = self.client.create_container(image=image, name=name, command="/bin/bash", tty=True, detach=True,
+                                                     ports=[Constants.DEFAULT_PUBLIC_WEBSERVER_PORT,
+                                                            Constants.DEFAULT_PRIVATE_NOTEBOOK_PORT],
+                                                     host_config=hc)
+
+        else:
+            container_mount_point = '/home/ubuntu/{0}'.format(os.path.basename(working_directory))
+            hc = self.client.create_host_config(privileged=True, port_bindings=port_bindings,
+                                                binds={working_directory: {'bind': container_mount_point,
+                                                                           'mode': 'rw'}})
+
+            container = self.client.create_container(image=image, name=name, command="/bin/bash", tty=True, detach=True,
+                                                     ports=[Constants.DEFAULT_PUBLIC_WEBSERVER_PORT,
+                                                            Constants.DEFAULT_PRIVATE_NOTEBOOK_PORT],
+                                                     volumes=container_mount_point, host_config=hc,
+                                                     working_dir=volume_dir)
+
+        container_id = container.get("Id")
+
+        return container_id
+
+    # noinspection PyBroadException
+    @staticmethod
+    def _verify_directory(working_directory):
+        import os, Utils
+        if working_directory is None:
+            return False
+        try:
+            if not os.path.exists(working_directory):
+                os.makedirs(working_directory)
+                os.chown(working_directory, Utils.get_user_id(), Utils.get_group_id())
+            return True
+        except:
+            return False
 
     def stop_containers(self, container_ids):
         """Stops given containers."""
@@ -98,8 +143,10 @@ class Docker:
 
     def build_image(self, dockerfile):
         """ Build image from given Dockerfile object and return ID of the image created. """
+        import uuid
         Log.write_log(Docker.LOG_TAG + "Building image...")
-        image_tag = Constants.DOCKER_IMAGE_PREFIX + "{0}".format(self.build_count)
+        random_string = str(uuid.uuid4())
+        image_tag = Constants.DOCKER_IMAGE_PREFIX + "{0}".format(random_string[:])
         last_line = ""
         try:
             for line in self.client.build(fileobj=dockerfile, rm=True, tag=image_tag):
@@ -148,6 +195,14 @@ class Docker:
     def terminate_container(self, container_id):
         self.client.remove_container(container_id)
 
+    def get_working_directory(self, container_id):
+        return self.client.inspect_container(container_id)["Config"]["WorkingDir"]
+
+    def get_home_directory(self, container_id):
+        env_vars = self.client.inspect_container(container_id)["Config"]["Env"]
+        home = [i for i in env_vars if i.startswith("HOME")]
+        return home[0].split("=")[1]
+
     def put_archive(self, container_id, tar_file_bytes, target_path_in_container):
         """ Copies and unpacks a given tarfile in the container at specified location.
         Location must exist in container."""
@@ -157,8 +212,10 @@ class Docker:
 
         # Prepend file path with /home/ubuntu/. TODO Should be refined.
         if not target_path_in_container.startswith("/home/ubuntu/"):
-            target_path_in_container = "/home/ubuntu/" + target_path_in_container
+            import os
+            target_path_in_container = os.path.join("/home/ubuntu/", target_path_in_container)
 
+        Log.write_log("target path in container: {0}".format(target_path_in_container))
         if not self.client.put_archive(container_id, target_path_in_container, tar_file_bytes):
             Log.write_log(Docker.LOG_TAG + "Failed to copy.")
 
