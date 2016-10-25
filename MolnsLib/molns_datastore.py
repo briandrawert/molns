@@ -8,8 +8,7 @@ import os
 import logging
 import sys
 #############################################################
-#VALID_PROVIDER_TYPES = ['OpenStack', 'EC2', 'Rackspace']
-VALID_PROVIDER_TYPES = ['OpenStack', 'EC2', 'Eucalyptus']
+VALID_PROVIDER_TYPES = ['OpenStack', 'EC2', 'Eucalyptus', 'Docker']
 #############################################################
 #### SCHEMA #################################################
 #############################################################
@@ -91,7 +90,7 @@ class Instance(Base):
     provider_id = Column(Integer)
     ip_address = Column(String)
     provider_instance_identifier = Column(String)
-    
+
     def __str__(self):
         return "Instance({0}): provider_instance_identifier={1} provider_id={2} controller_id={3} worker_group_id={4}".format(self.id, self.provider_instance_identifier, self.provider_id, self.controller_id, self.worker_group_id)
 
@@ -101,9 +100,9 @@ class DatastoreException(Exception):
 
 #############################################################
 HANDLE_MAPPING = {
-    'Provider':(Provider,ProviderData),
-    'Controller':(Controller,ControllerData),
-    'WorkerGroup':(WorkerGroup,WorkerGroupData),
+    'Provider': (Provider, ProviderData),
+    'Controller': (Controller, ControllerData),
+    'WorkerGroup': (WorkerGroup, WorkerGroupData),
 }
 
 #from OpenStackProvider import OpenStackProvider, OpenStackController, OpenStackWorkerGroup
@@ -128,6 +127,7 @@ def get_provider_handle(kind, ptype):
     pkg_name = "MolnsLib.{0}Provider".format(ptype)
     if pkg_name not in sys.modules:
         logging.debug("loading {0} from {1}".format(cls_name, pkg_name))
+    # pkg = dynamic_module_import(pkg_name)
     pkg = dynamic_module_import(pkg_name)
     try:
         #logging.debug("dir(pkg={0})={1}".format(pkg, dir(pkg)))
@@ -339,7 +339,8 @@ class Datastore():
         """ Create or get the value for an instance. """
         return self.session.query(Instance).filter_by(id=id).first()
     
-    def get_instance(self, provider_instance_identifier, ip_address, provider_id=None, controller_id=None, worker_group_id=None):
+    def get_instance(self, provider_instance_identifier, ip_address, provider_id=None, controller_id=None,
+                     worker_group_id=None, provider_type=None):
         """ Create or get the value for an instance. """
         p = self.session.query(Instance).filter_by(provider_instance_identifier=provider_instance_identifier).first()
         if p is None:

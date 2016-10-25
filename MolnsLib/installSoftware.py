@@ -46,7 +46,7 @@ class InstallSW:
             # EC2/S3 and OpenStack APIs
             "sudo pip install boto",
             "sudo apt-get -y install pandoc",
-            # This set of packages is needed for OpenStack, as molnsutil uses them for hybrid cloud deployment
+            # This set of packages is needed for OpenStack, as molns_util uses them for hybrid cloud deployment
             "sudo apt-get -y install libxml2-dev libxslt1-dev python-dev",
             "sudo pip install python-novaclient",
             "sudo easy_install -U pip",
@@ -63,6 +63,7 @@ class InstallSW:
         # So the workers can mount the controller via SSHfs
         [   "sudo apt-get -y install sshfs",
             "sudo gpasswd -a ubuntu fuse",
+            "mkdir -p /home/ubuntu/.ssh/",
             "echo 'ServerAliveInterval 60' >> /home/ubuntu/.ssh/config",
         ],
                     
@@ -83,19 +84,19 @@ class InstallSW:
             "cd /usr/local/ && git clone https://github.com/StochSS/stochkit.git StochKit",
             "cd /usr/local/StochKit && ./install.sh",
          
-            "sudo rm -rf /usr/local/ode-1.0.2;sudo mkdir -p /usr/local/ode-1.0.2/;sudo chown ubuntu /usr/local/ode-1.0.2",
-            "wget https://github.com/StochSS/stochss/blob/master/ode-1.0.2.tgz?raw=true -q -O /tmp/ode.tgz",
+            "sudo rm -rf /usr/local/ode-1.0.3;sudo mkdir -p /usr/local/ode-1.0.3/;sudo chown ubuntu /usr/local/ode-1.0.3",
+            "wget https://github.com/StochSS/stochss/blob/master/ode-1.0.3.tgz?raw=true -q -O /tmp/ode.tgz",
             "cd /usr/local/ && tar -xzf /tmp/ode.tgz",
             "rm /tmp/ode.tgz",
-            "cd /usr/local/ode-1.0.2/cvodes/ && tar -xzf \"cvodes-2.7.0.tar.gz\"",
-            "cd /usr/local/ode-1.0.2/cvodes/cvodes-2.7.0/ && ./configure --prefix=\"/usr/local/ode-1.0.2/cvodes/cvodes-2.7.0/cvodes\" 1>stdout.log 2>stderr.log",
-            "cd /usr/local/ode-1.0.2/cvodes/cvodes-2.7.0/ && make 1>stdout.log 2>stderr.log",
-            "cd /usr/local/ode-1.0.2/cvodes/cvodes-2.7.0/ && make install 1>stdout.log 2>stderr.log",
-            "cd /usr/local/ode-1.0.2/ && STOCHKIT_HOME=/usr/local/StochKit/ STOCHKIT_ODE=/usr/local/ode-1.0.2/ make 1>stdout.log 2>stderr.log",
+            "cd /usr/local/ode-1.0.3/cvodes/ && tar -xzf \"cvodes-2.7.0.tar.gz\"",
+            "cd /usr/local/ode-1.0.3/cvodes/cvodes-2.7.0/ && ./configure --prefix=\"/usr/local/ode-1.0.3/cvodes/cvodes-2.7.0/cvodes\" 1>stdout.log 2>stderr.log",
+            "cd /usr/local/ode-1.0.3/cvodes/cvodes-2.7.0/ && make 1>stdout.log 2>stderr.log",
+            "cd /usr/local/ode-1.0.3/cvodes/cvodes-2.7.0/ && make install 1>stdout.log 2>stderr.log",
+            "cd /usr/local/ode-1.0.3/ && STOCHKIT_HOME=/usr/local/StochKit/ STOCHKIT_ODE=/usr/local/ode-1.0.3/ make 1>stdout.log 2>stderr.log",
          
             "sudo rm -rf /usr/local/gillespy;sudo mkdir -p /usr/local/gillespy;sudo chown ubuntu /usr/local/gillespy",
             "cd /usr/local/ && git clone https://github.com/MOLNs/gillespy.git",
-            "cd /usr/local/gillespy && sudo STOCHKIT_HOME=/usr/local/StochKit/ STOCHKIT_ODE_HOME=/usr/local/ode-1.0.2/ python setup.py install"
+            "cd /usr/local/gillespy && sudo STOCHKIT_HOME=/usr/local/StochKit/ STOCHKIT_ODE_HOME=/usr/local/ode-1.0.3/ python setup.py install"
 
         ],
 
@@ -108,16 +109,16 @@ class InstallSW:
         ],
         
         # pyurdme
-        [   "sudo rm -rf /usr/local/pyurdme;sudo mkdir -p /usr/local/pyurdme;sudo chown ubuntu /usr/local/pyurdme",
+        [   "sudo rm -rf /usr/local/pyurdme && sudo mkdir -p /usr/local/pyurdme && sudo chown ubuntu /usr/local/pyurdme",
             "cd /usr/local/ && git clone https://github.com/MOLNs/pyurdme.git",
             #"cd /usr/local/pyurdme && git checkout develop",  # for development only
-            "cp /usr/local/pyurdme/pyurdme/data/three.js_templates/js/* .ipython/profile_default/static/custom/",
+            "cp /usr/local/pyurdme/pyurdme/data/three.js_templates/js/* $HOME/.ipython/profile_default/static/custom/",
             "source /usr/local/pyurdme/pyurdme_init && python -c 'import pyurdme'",
         ],
          
         # example notebooks
-        [  "rm -rf MOLNS_notebooks;git clone https://github.com/Molns/MOLNS_notebooks.git",
-            "cp MOLNS_notebooks/*.ipynb .;rm -rf MOLNS_notebooks;",
+        [  "rm -rf MOLNS_notebooks && git clone https://github.com/Molns/MOLNS_notebooks.git",
+            "cp MOLNS_notebooks/*.ipynb . && rm -rf MOLNS_notebooks",
             "ls *.ipynb"
         ],
                     
@@ -128,7 +129,7 @@ class InstallSW:
         "sudo pip install jsonschema jsonpointer",  #redo this install to be sure it has not been removed.
 
         
-        "sync",  # This is critial for some infrastructures.
+        "sync",  # This is critical for some infrastructures.
     ]
     
     # How many time do we try to install each package.
@@ -268,7 +269,6 @@ class InstallSW:
                 raise SystemExit("CRITICAL ERROR: could not complete command '{0}'. Exiting.".format(command))
         print "Installation complete in {0}s".format(time.time() - tic)
 
-
     def log_exec(self, msg):
         if self.log_file is not None:
             self.log_file.write(msg)
@@ -331,6 +331,11 @@ class InstallSW:
         except paramiko.SSHException as e:
             print "FAILED......\t{0}:{1}\t{2}\t{3}".format(self.hostname, self.ssh_endpoint, command, e)
             raise InstallSWException()
+
+    @staticmethod
+    def get_command_list():
+        """Returns the whole list of dependency installation commands. """
+        return InstallSW.command_list
 
 if __name__ == "__main__":
     print "{0}".format(InstallSW.command_list)
