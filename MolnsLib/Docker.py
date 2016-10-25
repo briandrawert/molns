@@ -14,7 +14,7 @@ class Docker:
 
     """ A wrapper over docker-py and some utility methods and classes. """
 
-    LOG_TAG = "Docker"
+    LOG_TAG = "Docker "
 
     shell_commands = ["source"]
 
@@ -150,7 +150,7 @@ class Docker:
         last_line = ""
         try:
             for line in self.client.build(fileobj=dockerfile, rm=True, tag=image_tag):
-                print(line)
+                print(Docker._decorate(line))
                 if "errorDetail" in line:
                     raise Docker.ImageBuildException()
                 last_line = line
@@ -163,6 +163,10 @@ class Docker:
 
         except (Docker.ImageBuildException, IndexError) as e:
             raise Docker.ImageBuildException(e)
+
+    @staticmethod
+    def _decorate(some_line):
+        return some_line[11:-4].rstrip()
 
     def image_exists(self, image_str):
         """Checks if an image with the given ID/tag exists locally."""
