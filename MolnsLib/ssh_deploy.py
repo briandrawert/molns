@@ -416,6 +416,9 @@ class SSHDeploy:
                     "sudo pip install /usr/local/pyurdme/; screen -d -m ipython notebook --profile={0}".format(
                         self.profile))
 
+            print "Installing paramiko..."
+            self.ssh.exec_command("sudo pip install paramiko")
+
             print "Installing cluster_execution..."
             # Install cluster_execution
             self.ssh.exec_command("git clone https://github.com/aviral26/cluster_execution.git; "
