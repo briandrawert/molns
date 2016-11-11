@@ -126,7 +126,7 @@ class InstallSW:
         "sudo apt-get -y remove python-scipy",
         "sudo pip install scipy",
         
-        "sudo pip install jsonschema jsonpointer",  #redo this install to be sure it has not been removed.
+        "sudo pip install jsonschema jsonpointer",  # redo this install to be sure it has not been removed.
 
         
         "sync",  # This is critical for some infrastructures.

@@ -94,7 +94,7 @@ class Docker:
         try:
             if not os.path.exists(working_directory):
                 os.makedirs(working_directory)
-                os.chown(working_directory, Utils.get_sudo_user_id(), Utils.get_sudo_group_id())
+                # os.chown(working_directory, Utils.get_sudo_user_id(), Utils.get_sudo_group_id())
             return True
         except:
             return False
