@@ -317,6 +317,33 @@ class MOLNSController(MOLNSbase):
         print "SCP process completed"
 
     @classmethod
+    def get_controller(cls, args, config):
+        """ Copy a controller's file to the local filesystem. """
+        logging.debug("MOLNSController.put_controller(args={0})".format(args))
+        controller_obj = cls._get_controllerobj(args, config)
+        if controller_obj is None: return
+        # Check if any instances are assigned to this controller
+        instance_list = config.get_controller_instances(controller_id=controller_obj.id)
+        #logging.debug("instance_list={0}".format(instance_list))
+        # Check if they are running
+        ip = None
+        if len(instance_list) > 0:
+            for i in instance_list:
+                status = controller_obj.get_instance_status(i)
+                logging.debug("instance={0} has status={1}".format(i, status))
+                if status == controller_obj.STATUS_RUNNING:
+                    ip = i.ip_address
+        if ip is None:
+            print "No active instance for this controller"
+            return
+        #print " ".join(['/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip)])
+        #os.execl('/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip))
+        cmd = ['/usr/bin/scp','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(), 'ubuntu@{0}:{1}'.format(ip, args[1]), '.']
+        print " ".join(cmd)
+        subprocess.call(cmd)
+        print "SSH process completed"
+
+    @classmethod
     def put_controller(cls, args, config):
         """ Copy a local file to the controller's shared area. """
         logging.debug("MOLNSController.put_controller(args={0})".format(args))
@@ -1388,6 +1415,8 @@ COMMAND_LIST = [
             function=MOLNSController.stop_controller),
         Command('terminate', {'name':None},
             function=MOLNSController.terminate_controller),
+        Command('get', {'name':None, 'file':None},
+            function=MOLNSController.get_controller),
         Command('put', {'name':None, 'file':None},
             function=MOLNSController.put_controller),
         Command('upload', {'name':None, 'file':None},
