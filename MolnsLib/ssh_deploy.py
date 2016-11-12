@@ -411,20 +411,14 @@ class SSHDeploy:
                     "{1}source /usr/local/pyurdme/pyurdme_init; screen -d -m ipython notebook --profile={0}".format(
                         self.profile, self.ipengine_env))
             else:
-                print "pip installing pyurdme..."
                 self.ssh.exec_command(
                     "sudo pip install /usr/local/pyurdme/; screen -d -m ipython notebook --profile={0}".format(
                         self.profile))
 
-            print "Installing paramiko..."
-            self.ssh.exec_command("sudo pip install paramiko")
-
-            print "Installing cluster_execution..."
             # Install cluster_execution
             self.ssh.exec_command("git clone https://github.com/aviral26/cluster_execution.git; "
-                                  "PYTHONPATH=`pwd`:$PYTHONPATH;")
+                                  "source PYTHONPATH=`pwd`:/usr/local/:$PYTHONPATH;")
 
-            print "Installing molns..."
             self.ssh.exec_command("git clone https://github.com/aviral26/molns.git")
 
             self.ssh.exec_command(

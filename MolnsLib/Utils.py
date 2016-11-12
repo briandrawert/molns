@@ -1,11 +1,22 @@
+def get_user_name():
+    try:
+        import os
+        return os.environ['SUDO_USER']
+    except KeyError:
+        import getpass
+        return getpass.getuser()
+
+
 def get_sudo_user_id():
-    import pwd, os
-    return pwd.getpwnam(os.environ['SUDO_USER']).pw_uid
+    import pwd
+    u_name = get_user_name()
+    return pwd.getpwnam(u_name).pw_uid
 
 
 def get_sudo_group_id():
-    import grp, os
-    return grp.getgrnam((os.environ['SUDO_USER'])).gr_gid
+    import grp
+    u_name = get_user_name()
+    return grp.getgrnam(u_name).gr_gid
 
 
 def ensure_sudo_mode(some_function):

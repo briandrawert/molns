@@ -56,8 +56,7 @@ class InstallSW:
                     
         [
          "sudo rm -rf /usr/local/molnsutil;sudo mkdir -p /usr/local/molnsutil;sudo chown ubuntu /usr/local/molnsutil",
-         "cd /usr/local/ && git clone https://github.com/Molns/molnsutil.git",
-         "cd /usr/local/molnsutil && sudo python setup.py install"
+         "cd /usr/local/ && git clone https://github.com/aviral26/molnsutil.git && cd /usr/local/molnsutil && git checkout qsub_support"
         ],
 
         # So the workers can mount the controller via SSHfs
@@ -127,7 +126,7 @@ class InstallSW:
         "sudo pip install scipy",
         
         "sudo pip install jsonschema jsonpointer",  # redo this install to be sure it has not been removed.
-
+        "sudo pip install paramiko",
         
         "sync",  # This is critical for some infrastructures.
     ]
