@@ -53,7 +53,7 @@ class InstallSW:
             "sudo pip install python-keystoneclient",
             "sudo pip install python-swiftclient",
         ],
-                    
+        # TODO pip install molnsutil while building image
         [
          "sudo rm -rf /usr/local/molnsutil;sudo mkdir -p /usr/local/molnsutil;sudo chown ubuntu /usr/local/molnsutil",
          "cd /usr/local/ && git clone https://github.com/aviral26/molnsutil.git && cd /usr/local/molnsutil && git checkout qsub_support"

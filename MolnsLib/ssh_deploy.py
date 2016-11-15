@@ -350,6 +350,31 @@ class SSHDeploy:
             print "StochSS launch failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
             raise sys.exc_info()[1], None, sys.exc_info()[2]
 
+    def __transfer_cluster_ssh_key_file(self, remote_target_dir, controller_obj):
+        local_ssh_key_file_path = controller_obj.config["ssh_key_file"]
+
+        if local_ssh_key_file_path is None:
+            print "No SSH key file provided for cluster access."
+            return
+
+        if not os.access(local_ssh_key_file_path, os.R_OK):
+            print "Skipping transfer of SSH key file. (Read access denied.) Cluster executions will not be possible."
+            return
+
+        # Transfer secret key file.
+        sftp = self.ssh.open_sftp()
+        remote_file_abs_path = os.path.join(remote_target_dir, Constants.ClusterKeyFileNameOnController)
+        remote_ssh_key_file = sftp.file(remote_file_abs_path, 'w')
+
+        with open(local_ssh_key_file_path, "r") as local_ssh_key_file:
+            remote_ssh_key_file.write(local_ssh_key_file.read())
+
+        remote_ssh_key_file.close()
+        sftp.close()
+
+        # Give user ubuntu permission to access file.
+        self.ssh.exec_command("sudo chown ubuntu:ubuntu {0}".format(remote_file_abs_path))
+
     def deploy_ipython_controller(self, instance, controller_obj, notebook_password=None, resume=False):
         ip_address = instance.ip_address
 
@@ -388,6 +413,7 @@ class SSHDeploy:
                 self.ssh.exec_command("ipython profile create {0}".format(self.profile))
                 self.create_ipython_config(ip_address, notebook_password)
                 self.create_engine_config()
+                self.__transfer_cluster_ssh_key_file(remote_target_dir=home_dir, controller_obj=controller_obj)
                 if controller_obj.provider.type == Constants.DockerProvider:
                     self.ssh.exec_command("mv {0}*.ipynb {1}".format(home_dir,
                                                                      Docker.get_container_volume_from_working_dir(
@@ -416,9 +442,9 @@ class SSHDeploy:
                         self.profile))
 
             # Install cluster_execution
-            self.ssh.exec_command("git clone https://github.com/aviral26/cluster_execution.git; "
-                                  "source PYTHONPATH=`pwd`:/usr/local/:$PYTHONPATH;")
+            self.ssh.exec_command("git clone https://github.com/aviral26/cluster_execution.git")
 
+            # Install molns
             self.ssh.exec_command("git clone https://github.com/aviral26/molns.git")
 
             self.ssh.exec_command(

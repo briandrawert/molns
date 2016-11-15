@@ -66,7 +66,8 @@ class Docker:
             container = self.client.create_container(image=image, name=name, command="/bin/bash", tty=True, detach=True,
                                                      ports=[Constants.DEFAULT_PUBLIC_WEBSERVER_PORT,
                                                             Constants.DEFAULT_PRIVATE_NOTEBOOK_PORT],
-                                                     host_config=hc)
+                                                     host_config=hc,
+                                                     environment={"PYTHONPATH": "/usr/local/"})
 
         else:
             container_mount_point = '/home/ubuntu/{0}'.format(os.path.basename(working_directory))
@@ -78,7 +79,8 @@ class Docker:
                                                      ports=[Constants.DEFAULT_PUBLIC_WEBSERVER_PORT,
                                                             Constants.DEFAULT_PRIVATE_NOTEBOOK_PORT],
                                                      volumes=container_mount_point, host_config=hc,
-                                                     working_dir=volume_dir)
+                                                     working_dir=volume_dir,
+                                                     environment={"PYTHONPATH": "/usr/local/"})
 
         container_id = container.get("Id")
 

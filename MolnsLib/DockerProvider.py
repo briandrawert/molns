@@ -224,7 +224,9 @@ class DockerController(DockerBase):
          {'q': 'Port to use for jupyter notebook', 'default': "8081",
           'ask': True}),
         ('working_directory',
-         {'q': 'Working directory for this controller', 'default': get_default_working_directory, 'ask': True})
+         {'q': 'Working directory for this controller', 'default': get_default_working_directory, 'ask': True}),
+        ('ssh_key_file',
+         {'q': 'SSH key to a qsub and docker enabled cluster', 'default': None, 'ask': True})
     ])
 
     def get_instance_status(self, instance):
