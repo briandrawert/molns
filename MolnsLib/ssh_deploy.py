@@ -447,6 +447,9 @@ class SSHDeploy:
             # Install molns
             self.ssh.exec_command("git clone https://github.com/aviral26/molns.git")
 
+            # Temporary command until new image is created to use latest molnsutil. TODO pip install molnsutil
+            self.ssh.exec_command("cd /usr/local/molnsutil; git checkout qsub_support; git pull")
+
             self.ssh.exec_command(
                 "sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport {0} -j REDIRECT --to-port {1}".format(
                     Constants.DEFAULT_PUBLIC_NOTEBOOK_PORT, Constants.DEFAULT_PRIVATE_NOTEBOOK_PORT))
