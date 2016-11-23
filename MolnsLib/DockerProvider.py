@@ -2,11 +2,10 @@ import logging
 import os
 import tempfile
 import time
-from collections import OrderedDict
-
 import Docker
 import constants
 import installSoftware
+from collections import OrderedDict
 from DockerSSH import DockerSSH
 from constants import Constants
 from molns_provider import ProviderBase, ProviderException

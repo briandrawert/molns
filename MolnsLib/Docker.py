@@ -1,8 +1,6 @@
 import logging
 import re
 import time
-
-from Utils import Log, ensure_sudo_mode
 import constants
 from molns_provider import ProviderBase
 from constants import Constants
@@ -26,7 +24,6 @@ class Docker:
         def __init__(self, message=None):
             super("Something went wrong while building docker container image.\n{0}".format(message))
 
-    @ensure_sudo_mode
     def __init__(self):
         self.client = Client(base_url=Constants.DOCKER_BASE_URL)
         self.build_count = 0
@@ -37,7 +34,6 @@ class Docker:
         import os
         return os.path.join("/home/ubuntu/", os.path.basename(working_directory))
 
-    @ensure_sudo_mode
     def create_container(self, image_str, working_directory=None, name=None,
                          port_bindings={Constants.DEFAULT_PUBLIC_WEBSERVER_PORT: ('127.0.0.1', 8080),
                                         Constants.DEFAULT_PRIVATE_NOTEBOOK_PORT: ('127.0.0.1', 8081)}):
@@ -54,14 +50,19 @@ class Docker:
         image = docker_image.image_id if docker_image.image_id is not Constants.DockerNonExistentTag \
             else docker_image.image_tag
 
-        Log.write_log("Using image {0}".format(image))
+        logging.info("Using image {0}".format(image))
         import os
         if Docker._verify_directory(working_directory) is False:
             if working_directory is not None:
-                raise InvalidVolumeName("\n\nMOLNs uses certain reserved names for its configuration files in the controller environment, and unfortunately the provided name for working directory of the controller cannot be one of these. Please configure this controller again with a different volume name and retry. Here is a list of forbidden names: \n{0}".format(Constants.ForbiddenVolumeNames))
+                raise InvalidVolumeName("\n\nMOLNs uses certain reserved names for its configuration files in the "
+                                        "controller environment, and unfortunately the provided name for working "
+                                        "directory of the controller cannot be one of these. Please configure this "
+                                        "controller again with a different volume name and retry. "
+                                        "Here is a list of forbidden names: \n{0}"
+                                        .format(Constants.ForbiddenVolumeNames))
 
-            Log.write_log(Docker.LOG_TAG + "Unable to verify provided directory to use to as volume. Volume will NOT "
-                                           "be created.")
+            logging.warning(Docker.LOG_TAG + "Unable to verify provided directory to use to as volume. Volume will NOT "
+                                             "be created.")
             hc = self.client.create_host_config(privileged=True, port_bindings=port_bindings)
             container = self.client.create_container(image=image, name=name, command="/bin/bash", tty=True, detach=True,
                                                      ports=[Constants.DEFAULT_PUBLIC_WEBSERVER_PORT,
@@ -87,32 +88,27 @@ class Docker:
         return container_id
 
     # noinspection PyBroadException
-    @ensure_sudo_mode
     @staticmethod
     def _verify_directory(working_directory):
-        import os, Utils
+        import os
         if working_directory is None or os.path.basename(working_directory) in Constants.ForbiddenVolumeNames:
             return False
         try:
             if not os.path.exists(working_directory):
                 os.makedirs(working_directory)
-                # os.chown(working_directory, Utils.get_sudo_user_id(), Utils.get_sudo_group_id())
             return True
         except:
             return False
 
-    @ensure_sudo_mode
     def stop_containers(self, container_ids):
         """Stops given containers."""
         for container_id in container_ids:
             self.stop_container(container_id)
 
-    @ensure_sudo_mode
     def stop_container(self, container_id):
         """Stops the container with given ID."""
         self.client.stop(container_id)
 
-    @ensure_sudo_mode
     def container_status(self, container_id):
         """Checks if container with given ID running."""
         status = ProviderBase.STATUS_TERMINATED
@@ -126,44 +122,40 @@ class Docker:
             pass
         return status
 
-    @ensure_sudo_mode
     def start_containers(self, container_ids):
         """Starts each container in given list of container IDs."""
         for container_id in container_ids:
             self.start_container(container_id)
 
-    @ensure_sudo_mode
     def start_container(self, container_id):
         """ Start the container with given ID."""
-        Log.write_log(Docker.LOG_TAG + " Starting container " + container_id)
+        logging.info(Docker.LOG_TAG + " Starting container " + container_id)
         try:
             self.client.start(container=container_id)
         except (NotFound, NullResource) as e:
-            Log.write_log(Docker.LOG_TAG + " Something went wrong while starting container.", e)
+            print (Docker.LOG_TAG + "Something went wrong while starting container.", e)
             return False
         return True
 
-    @ensure_sudo_mode
     def execute_command(self, container_id, command):
         """Executes given command as a shell command in the given container. Returns None is anything goes wrong."""
         run_command = "/bin/bash -c \"" + command + "\""
         # print("CONTAINER: {0} COMMAND: {1}".format(container_id, run_command))
         if self.start_container(container_id) is False:
-            Log.write_log(Docker.LOG_TAG + "Could not start container.")
+            print (Docker.LOG_TAG + "Could not start container.")
             return None
         try:
             exec_instance = self.client.exec_create(container_id, run_command)
             response = self.client.exec_start(exec_instance)
             return [self.client.exec_inspect(exec_instance), response]
         except (NotFound, APIError) as e:
-            Log.write_log(Docker.LOG_TAG + " Could not execute command.", e)
+            print (Docker.LOG_TAG + " Could not execute command.", e)
             return None
 
-    @ensure_sudo_mode
     def build_image(self, dockerfile):
         """ Build image from given Dockerfile object and return ID of the image created. """
         import uuid
-        Log.write_log(Docker.LOG_TAG + "Building image...")
+        logging.info("Building image...")
         random_string = str(uuid.uuid4())
         image_tag = Constants.DOCKER_IMAGE_PREFIX + "{0}".format(random_string[:])
         last_line = ""
@@ -177,7 +169,7 @@ class Docker:
             # Return image ID. It's a hack around the fact that docker-py's build image command doesn't return an image
             # id.
             image_id = get_docker_image_id_from_string(str(last_line))
-            Log.write_log(Docker.LOG_TAG + "Image ID: {0}".format(image_id))
+            logging.info("Image ID: {0}".format(image_id))
             return str(DockerImage(image_id, image_tag))
 
         except (Docker.ImageBuildException, IndexError) as e:
@@ -187,7 +179,6 @@ class Docker:
     def _decorate(some_line):
         return some_line[11:-4].rstrip()
 
-    @ensure_sudo_mode
     def image_exists(self, image_str):
         """Checks if an image with the given ID/tag exists locally."""
         docker_image = DockerImage.from_string(image_str)
@@ -206,7 +197,6 @@ class Docker:
                 return True
         return False
 
-    @ensure_sudo_mode
     def terminate_containers(self, container_ids):
         """ Terminates containers with given container ids."""
         for container_id in container_ids:
@@ -217,50 +207,44 @@ class Docker:
             except NotFound:
                 pass
 
-    @ensure_sudo_mode
     def terminate_container(self, container_id):
         self.client.remove_container(container_id)
 
-    @ensure_sudo_mode
     def get_mapped_ports(self, container_id):
         container_ins = self.client.inspect_container(container_id)
         mapped_ports = container_ins['HostConfig']['PortBindings']
         ret_val = []
         if mapped_ports is None:
-            Log.write_log("No mapped ports for {0}".format(container_id))
+            logging.info("No mapped ports for {0}".format(container_id))
             return
         for k, v in mapped_ports.iteritems():
             host_port = v[0]['HostPort']
             ret_val.append(host_port)
         return ret_val
 
-    @ensure_sudo_mode
     def get_working_directory(self, container_id):
         return self.client.inspect_container(container_id)["Config"]["WorkingDir"]
 
-    @ensure_sudo_mode
     def get_home_directory(self, container_id):
         env_vars = self.client.inspect_container(container_id)["Config"]["Env"]
         home = [i for i in env_vars if i.startswith("HOME")]
         return home[0].split("=")[1]
 
-    @ensure_sudo_mode
     def put_archive(self, container_id, tar_file_bytes, target_path_in_container):
         """ Copies and unpacks a given tarfile in the container at specified location.
         Location must exist in container."""
         if self.start_container(container_id) is False:
-           raise Exception("ERROR Could not start container.")
+           raise Exception("Could not start container.")
 
         # Prepend file path with /home/ubuntu/. TODO Should be refined.
         if not target_path_in_container.startswith("/home/ubuntu/"):
             import os
             target_path_in_container = os.path.join("/home/ubuntu/", target_path_in_container)
 
-        Log.write_log("target path in container: {0}".format(target_path_in_container))
+        logging.info("target path in container: {0}".format(target_path_in_container))
         if not self.client.put_archive(container_id, target_path_in_container, tar_file_bytes):
-            Log.write_log(Docker.LOG_TAG + "Failed to copy.")
+            logging.error(Docker.LOG_TAG + "Failed to copy.")
 
-    @ensure_sudo_mode
     def get_container_ip_address(self, container_id):
         """ Returns the IP Address of given container."""
         self.start_container(container_id)

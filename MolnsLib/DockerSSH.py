@@ -26,7 +26,7 @@ class DockerSSH(object):
         self.container_id = instance.provider_instance_identifier
 
     def connect_cluster_node(self, ip_address, port, username, keyfile):
-        raise DockerSSHException("This invocation has been in error.")
+        raise DockerSSHException("This invocation means that an error has occurred.")
 
     def close(self):
         self.container_id = None

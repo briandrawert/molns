@@ -24,7 +24,8 @@ def ensure_sudo_mode(some_function):
     import sys
     if sys.platform.startswith("linux") and os.getuid() != 0:
         pass
-        #raise NoPrivilegedMode("\n\nOn Linux platforms, 'docker' is a priviledged command. To use 'docker' functionality, please run in sudo mode or as root user.")
+        raise NoPrivilegedMode("\n\nOn Linux platforms, 'docker' is a priviledged command. "
+                               "To use 'docker' functionality, please run in sudo mode or as root user.")
     return some_function
 
 
