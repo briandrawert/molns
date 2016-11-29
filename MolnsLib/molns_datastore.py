@@ -123,7 +123,8 @@ def get_provider_handle(kind, ptype):
     if kind not in valid_handles:
         raise DatastoreException("Unknown kind {0}".format(kind))
     if ptype not in VALID_PROVIDER_TYPES:
-        raise DatastoreException("Unknown {1} type {0}".format(ptype, kind))
+        #raise DatastoreException("Unknown {1} type {0}".format(ptype, kind))
+        return None
     cls_name = "{0}{1}".format(ptype, kind)
     pkg_name = "MolnsLib.{0}Provider".format(ptype)
     if pkg_name not in sys.modules:
@@ -272,6 +273,8 @@ class Datastore():
 
         p_handle = get_provider_handle(kind, ptype)
         #logging.debug("{2}(name={0}, data={1})".format(name,data,p_handle))
+        if p_handle is None:
+            return None
         ret = p_handle(name=p.name, config=data, config_dir=self.config_dir)
         ret.id = p.id
         ret.datastore = self
