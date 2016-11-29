@@ -441,6 +441,7 @@ class SSHDeploy:
                     "sudo pip install /usr/local/pyurdme/; screen -d -m ipython notebook --profile={0}".format(
                         self.profile))
 
+            # TODO remove next three commands after testing. Put them in the image instead.
             # Install cluster_execution
             self.ssh.exec_command("git clone https://github.com/aviral26/cluster_execution.git")
 
