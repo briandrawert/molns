@@ -18,6 +18,8 @@ logger = logging.getLogger()
 logger.setLevel(logging.CRITICAL)
 
 
+from collections import OrderedDict
+
 ###############################################
 class MOLNSException(Exception):
     pass
@@ -299,12 +301,11 @@ class MOLNSController(MOLNSbase):
                 if status == controller_obj.STATUS_RUNNING:
                     ip = i.ip_address
         if ip is None:
-            print "No active instance for this controller"
-            return
-        # print " ".join(['/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip)])
-        # os.execl('/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip))
-        cmd = ['/usr/bin/ssh', '-oStrictHostKeyChecking=no', '-oUserKnownHostsFile=/dev/null', '-i',
-               controller_obj.provider.sshkeyfilename(), 'ubuntu@{0}'.format(ip)]
+            raise MOLNSException("No active instance for this controller")
+        #print " ".join(['/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip)])
+        #os.execl('/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip))
+        cmd = ['/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',
+               controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip)]
         print " ".join(cmd)
         subprocess.call(cmd)
         print "SSH process completed"
@@ -327,11 +328,10 @@ class MOLNSController(MOLNSbase):
                 if status == controller_obj.STATUS_RUNNING:
                     ip = i.ip_address
         if ip is None:
-            print "No active instance for this controller"
-            return
-        # print " ".join(['/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip)])
-        # os.execl('/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip))
-        cmd = ['/usr/bin/scp', '-r', '-oStrictHostKeyChecking=no', '-oUserKnownHostsFile=/dev/null', '-i',
+            raise MOLNSException("No active instance for this controller")
+        #print " ".join(['/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip)])
+        #os.execl('/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip))
+        cmd = ['/usr/bin/scp','-r','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',
                controller_obj.provider.sshkeyfilename(), args[1], 'ubuntu@{0}:/home/ubuntu/'.format(ip)]
         print " ".join(cmd)
         subprocess.call(cmd)
@@ -339,7 +339,7 @@ class MOLNSController(MOLNSbase):
 
     @classmethod
     def put_controller(cls, args, config):
-        """ Copy a local file to the controller's shared area. """
+        """ Copy a local file to the controller's and workers' shared area. """
         logging.debug("MOLNSController.put_controller(args={0})".format(args))
         controller_obj = cls._get_controllerobj(args, config)
         if controller_obj is None: return
@@ -355,25 +355,45 @@ class MOLNSController(MOLNSbase):
                 if status == controller_obj.STATUS_RUNNING:
                     ip = i.ip_address
         if ip is None:
-            print "No active instance for this controller"
-            return
-        # print " ".join(['/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip)])
-        # os.execl('/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip))
-        cmd = ['/usr/bin/scp', '-oStrictHostKeyChecking=no', '-oUserKnownHostsFile=/dev/null', '-i',
+            raise MOLNSException("No active instance for this controller")
+        #print " ".join(['/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip)])
+        #os.execl('/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip))
+        cmd = ['/usr/bin/scp','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',
                controller_obj.provider.sshkeyfilename(), args[1], 'ubuntu@{0}:/home/ubuntu/shared'.format(ip)]
         print " ".join(cmd)
         subprocess.call(cmd)
         print "SSH process completed"
 
     @classmethod
+    def is_controller_running(cls, args, config):
+        logging.debug("MOLNSController.is_controller_running(args={0})".format(args))
+        if len(args) > 0:
+            try:
+                controller_obj = cls._get_controllerobj(args, config)
+            except MOLNSException:
+                return {}
+            if controller_obj is None: return False
+            # Check if any instances are assigned to this controller
+            instance_list = config.get_controller_instances(controller_id=controller_obj.id)
+            if len(instance_list) > 0:
+                for i in instance_list:
+                    status = controller_obj.get_instance_status(i)
+                    if status == controller_obj.get_instance_status.STATUS_RUNNING:
+                        return True
+
+            return False
+        
+
+    @classmethod
     def status_controller(cls, args, config):
         """ Get status of the head node of a MOLNs controller. """
         logging.debug("MOLNSController.status_controller(args={0})".format(args))
         if len(args) > 0:
-            controller_obj = cls._get_controllerobj(args, config)
-            if controller_obj is None:
-                return
-
+            try:
+                controller_obj = cls._get_controllerobj(args, config)
+            except MOLNSException:
+                return {}
+            if controller_obj is None: return {}
             # Check if any instances are assigned to this controller
             instance_list = config.get_controller_instances(controller_id=controller_obj.id)
             table_data = []
@@ -417,7 +437,10 @@ class MOLNSController(MOLNSbase):
             if len(instance_list) > 0:
                 table_data = []
                 for i in instance_list:
-                    provider_name = config.get_object_by_id(i.provider_id, 'Provider').name
+                    provider_obj = config.get_object_by_id(i.provider_id, 'Provider')
+                    if provider_obj is None:
+                        continue
+                    provider_name = provider_obj.name
                     controller_name = config.get_object_by_id(i.controller_id, 'Controller').name
                     if i.worker_group_id is not None:
                         worker_name = config.get_object_by_id(i.worker_group_id, 'WorkerGroup').name
@@ -433,7 +456,7 @@ class MOLNSController(MOLNSbase):
                 return {'msg': "No instance found"}
 
     @classmethod
-    def start_controller(cls, args, config, password=None):
+    def start_controller(cls, args, config, password=None, openWebBrowser=True, reserved_cpus=2):
         """ Start the MOLNs controller. """
         resume = False
         logging.debug("MOLNSController.start_controller(args={0})".format(args))
@@ -463,8 +486,9 @@ class MOLNSController(MOLNSbase):
 
         # deploying
         sshdeploy = SSHDeploy(controller_obj.ssh, config=controller_obj.provider, config_dir=config.config_dir)
-        sshdeploy.deploy_ipython_controller(inst, controller_obj, notebook_password=password, resume=resume)
-        sshdeploy.deploy_molns_webserver(inst, controller_obj)
+        sshdeploy.deploy_ipython_controller(inst, controller_obj, notebook_password=password, resume=resume,
+                                            reserved_cpus=reserved_cpus)
+        sshdeploy.deploy_molns_webserver(inst, controller_obj, openWebBrowser=openWebBrowser)
         # sshdeploy.deploy_stochss(inst.ip_address, port=443)
 
     @classmethod
@@ -1230,7 +1254,11 @@ class MOLNSInstances(MOLNSbase):
         if len(instance_list) > 0:
             table_data = []
             for i in instance_list:
-                provider_name = config.get_object_by_id(i.provider_id, 'Provider').name
+                provider_obj = config.get_object_by_id(i.provider_id, 'Provider')
+                if provider_obj is None:
+                    continue
+                provider_name = provider_obj.name
+                #print "provider_obj.type",provider_obj.type
                 if i.worker_group_id is not None:
                     name = config.get_object_by_id(i.worker_id, 'WorkerGroup').name
                     itype = 'worker'
@@ -1272,8 +1300,165 @@ class MOLNSInstances(MOLNSbase):
         else:
             print "No instance found"
 
-# Below is the API for the command line execution
+###############################################
 
+class MOLNSExec(MOLNSbase):
+    @classmethod
+    def _get_ip_for_job(cls, job, config):
+        instance_list = config.get_controller_instances(controller_id=job.controller_id)
+        controller_obj = config.get_object_by_id(job.controller_id, 'Controller')
+        if controller_obj is None:
+            raise MOLNSException("Could not find the controller for this job")
+        # Check if they are running
+        ip = None
+        if len(instance_list) > 0:
+            for i in instance_list:
+                status = controller_obj.get_instance_status(i)
+                logging.debug("instance={0} has status={1}".format(i, status))
+                if status == controller_obj.STATUS_RUNNING:
+                    ip = i.ip_address
+        return ip, controller_obj
+
+    @classmethod
+    def start_job(cls, args, config):
+        ''' Execute a process on the controller.'''
+        # Get Controller
+        if len(args) < 2:
+             raise MOLNSException("USAGE: molns exec start name [Command]\n"\
+                "\tExecute 'Command' on the controller with the given name.")
+       
+        else:
+            controller_obj = cls._get_controllerobj(args, config)
+            if controller_obj is None:
+                raise Exception("Countroller {0} not found".format(args[0]))
+        # Check if controller is running
+        instance_list = config.get_all_instances(controller_id=controller_obj.id)
+        inst = None
+        if len(instance_list) > 0:
+            for i in instance_list:
+                status = controller_obj.get_instance_status(i)
+                if status == controller_obj.STATUS_RUNNING:
+                    inst = i
+                    break
+        if inst is None:
+            raise MOLNSException("Controller {0} is not running.".format(args[0]))
+        # Create Datastore object
+        exec_str = args[1]
+        job = config.start_job(controller_id=controller_obj.id, exec_str=exec_str)
+        # execute command
+        sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
+        sshdeploy.deploy_remote_execution_job(inst.ip_address, job.jobID, exec_str)
+        #
+        return {'JobID':job.jobID, 'id':job.id, 'msg':"Job started, ID={1}  JobID={0}".format(job.jobID,job.id)}
+
+    @classmethod
+    def job_status(cls, args, config):
+        ''' Check if a process is still running on the controller.'''
+        if len(args) < 1:
+             raise MOLNSException("USAGE: molns exec status [JobID]\n"\
+                "\tCheck if a process is still running on the controller.")
+        j = config.get_job(jobID=args[0])
+        ip, controller_obj = cls._get_ip_for_job(j, config)
+        if ip is None:
+            return {'running':False, 'msg': "No active instance for this controller"}
+        sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
+        (running, msg) = sshdeploy.remote_execution_job_status(ip, j.jobID)
+        return {'running':running, 'msg':msg}
+
+    @classmethod
+    def job_logs(cls, args, config):
+        ''' Return the output (stdout/stderr) of the process.'''
+        if len(args) < 1:
+             raise MOLNSException("USAGE: molns exec logs [JobID] [seek]\n"\
+                "\tReturn the output (stdout/stderr) of the process (starting from 'seek').")
+        j = config.get_job(jobID=args[0])
+        ip, controller_obj = cls._get_ip_for_job(j, config)
+        if ip is None:
+            raise MOLNSException("No active instance for this controller")
+        seek = 0
+        if len(args) > 1:
+            try:
+                seek = int(args[1])
+            except Exception:
+                raise MOLNSException("'seek' must be an integer")
+        sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
+        logs = sshdeploy.remote_execution_get_job_logs(ip, j.jobID, seek)
+        return {'msg': logs}
+
+
+    @classmethod
+    def fetch_job_results(cls, args, config, overwrite=False):
+        ''' Transfer files created by the process from the controller to local file system.'''
+        if len(args) < 2:
+             raise MOLNSException("USAGE: molns exec fetch [JobID] [filename] (destination filename)\n"\
+                "\tRemove process files from the controller (will kill active processes if running).")
+        filename = args[1]
+        j = config.get_job(jobID=args[0])
+        if j is None:
+            raise MOLNSException("Job not found")
+        ip, controller_obj = cls._get_ip_for_job(j, config)
+        if ip is None:
+            raise MOLNSException("No active instance for this controller")
+        sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
+        if os.path.isfile(filename) and not overwrite and (len(args) < 3 or args[-1] != '--force'):
+            raise MOLNSException("File {0} exists, use '--force' or overwrite=True to ignore.")
+        if len(args) >= 3 and not args[2].startswith('--'):
+            localfile = args[2]
+        else:
+            localfile = filename
+        sshdeploy.remote_execution_fetch_file(ip, j.jobID, filename, localfile)
+        return {'msg': "File transfer complete."}
+
+
+    @classmethod
+    def cleanup_job(cls, args, config):
+        ''' Remove process files from the controller (will kill active processes if running).'''
+        if len(args) < 1:
+             raise MOLNSException("USAGE: molns exec cleanup [JobID]\n"\
+                "\tRemove process files from the controller (will kill active processes if running).")
+        j = config.get_job(jobID=args[0])
+        if j is None:
+            return {'msg':"Job not found"}
+        ip, controller_obj = cls._get_ip_for_job(j, config)
+        if ip is None:
+            raise MOLNSException("No active instance for this controller")
+        sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
+        sshdeploy.remote_execution_delete_job(ip, j.jobID)
+        config.delete_job(j)
+        return {'msg':"Job {0} deleted".format(args[0])}
+
+    @classmethod
+    def list_jobs(cls, args, config):
+        ''' List all jobs. If 'name' is specified, list all jobs on named controller.'''
+        if len(args) > 0:
+            controller_obj = cls._get_controllerobj(args, config)
+            if controller_obj is None:
+                raise Exception("Countroller {0} not found".format(args[0]))
+            jobs = config.get_all_jobs(controller_id=controller_obj.id)
+        else:
+            jobs = config.get_all_jobs()
+
+        if len(jobs) == 0:
+            return {'msg':"No jobs found"}
+        else:
+            table_data = []
+            for j in jobs:
+                try:
+                    p = config.get_object_by_id(j.controller_id, 'Controller')
+                    controller_name = p.name
+                except DatastoreException as e:
+                    controller_name = 'ERROR: {0}'.format(e)
+                table_data.append([j.id, j.jobID, controller_name, j.exec_str, j.date])
+            return {'type':'table','column_names':['ID', 'JobID', 'Controller', 'Command', 'Date'], 'data':table_data}
+
+
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+# Below is the API for the commmand line execution
 
 class CommandException(Exception):
     pass
@@ -1472,9 +1657,9 @@ COMMAND_LIST = [
                 function=MOLNSWorkerGroup.add_worker_groups),
         Command('status', {'name': None},
                 function=MOLNSWorkerGroup.status_worker_groups),
-        # Command('stop', {'name':None},
-        #    function=MOLNSWorkerGroup.stop_worker_groups),
-        Command('terminate', {'name': None},
+            Command('stop', {'name':None},
+                function=MOLNSWorkerGroup.terminate_worker_groups),
+            Command('terminate', {'name':None},
                 function=MOLNSWorkerGroup.terminate_worker_groups),
         Command('export', {'name': None},
                 function=MOLNSWorkerGroup.worker_group_export),
@@ -1506,10 +1691,23 @@ COMMAND_LIST = [
                 function=MOLNSInstances.delete_instance),
         Command('clear', {},
                 function=MOLNSInstances.clear_instances),
-    ]),
-
-]
-
+        ]),
+        SubCommand('exec',[
+            Command('start', OrderedDict([('name',None), ('command',None)]),
+                function=MOLNSExec.start_job),
+            Command('status', {'jobID':None},
+                function=MOLNSExec.job_status),
+            Command('logs', {'jobID':None},
+                function=MOLNSExec.job_logs),
+            Command('fetch', OrderedDict([('jobID',None), ('filename', None)]),
+                function=MOLNSExec.fetch_job_results),
+            Command('cleanup', {'jobID':None},
+                function=MOLNSExec.cleanup_job),
+            Command('list', {'name':None},
+                function=MOLNSExec.list_jobs),
+        ]),
+                
+                ]
 
 def print_help():
     print "molns <command> <command-args>"
@@ -1561,4 +1759,7 @@ def parse_args():
 
 
 if __name__ == "__main__":
+    logger = logging.getLogger()
+    #logger.setLevel(logging.INFO)  #for Debugging
+    logger.setLevel(logging.CRITICAL)
     parse_args()

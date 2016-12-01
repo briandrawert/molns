@@ -33,6 +33,8 @@ class SSHDeploy:
     DEFAULT_IPCONTROLLER_PORT = 9000
 
     DEFAULT_PYURDME_TEMPDIR = "/mnt/pyurdme_tmp"
+    
+    REMOTE_EXEC_JOB_PATH = "/mnt/molnsexec"
 
     def __init__(self, ssh, config=None, config_dir=None):
         if config is None:
@@ -48,6 +50,7 @@ class SSHDeploy:
         if not (isinstance(ssh, SSH) or isinstance(ssh, DockerSSH)):
             raise SSHDeployException("SSH object invalid.")
         self.ssh = ssh
+        self.provider_name = config.name
         self.profile = 'default'
         self.profile_dir = "/home/%s/.ipython/profile_default/" % (self.username)
         self.ipengine_env = 'export INSTANT_OS_CALL_METHOD=SUBPROCESS;export PYURDME_TMPDIR={0};'.format(
@@ -125,27 +128,28 @@ class SSHDeploy:
         remote_file_name = '%sipcontroller_config.py' % self.profile_dir_server
         notebook_config_file = sftp.file(remote_file_name, 'w+')
         notebook_config_file.write('\n'.join([
-            "c = get_config()",
-            "c.IPControllerApp.log_level=20",
-            "c.HeartMonitor.period=10000",
-            "c.HeartMonitor.max_heartmonitor_misses=10",
-        ]))
+                "c = get_config()",
+                "c.IPControllerApp.log_level=20",
+                "c.HeartMonitor.period=10000",
+                "c.HeartMonitor.max_heartmonitor_misses=10",
+                "c.HubFactory.db_class = \"SQLiteDB\"",
+                ]))
         notebook_config_file.close()
 
-        # IPython startup code
-        remote_file_name = '{0}startup/molns_dill_startup.py'.format(self.profile_dir_server)
-        dill_init_file = sftp.file(remote_file_name, 'w+')
-        dill_init_file.write('\n'.join([
-            'import dill',
-            'from IPython.utils import pickleutil',
-            'pickleutil.use_dill()',
-            'import logging',
-            "logging.getLogger('UFL').setLevel(logging.ERROR)",
-            "logging.getLogger('FFC').setLevel(logging.ERROR)"
-            "import cloud",
-            "logging.getLogger('Cloud').setLevel(logging.ERROR)"
-        ]))
-        dill_init_file.close()
+#        # IPython startup code
+#        remote_file_name='{0}startup/molns_dill_startup.py'.format(self.profile_dir_server)
+#        dill_init_file = sftp.file(remote_file_name, 'w+')
+#        dill_init_file.write('\n'.join([
+#                'import dill',
+#                'from IPython.utils import pickleutil',
+#                'pickleutil.use_dill()',
+#                'import logging',
+#                "logging.getLogger('UFL').setLevel(logging.ERROR)",
+#                "logging.getLogger('FFC').setLevel(logging.ERROR)"
+#                "import cloud",
+#                "logging.getLogger('Cloud').setLevel(logging.ERROR)"
+#                ]))
+#        dill_init_file.close()
         sftp.close()
 
     def create_s3_config(self):
@@ -154,7 +158,7 @@ class SSHDeploy:
         s3_config_file = sftp.file(remote_file_name, 'w')
         config = {}
         config["provider_type"] = self.config.type
-        config["bucket_name"] = "molns_storage_{0}".format(self.get_cluster_id())
+        config["bucket_name"] = "molns_storage_{1}_{0}".format(self.get_cluster_id(), self.provider_name)
         config["credentials"] = self.config.get_config_credentials()
         s3_config_file.write(json.dumps(config))
         s3_config_file.close()
@@ -244,9 +248,10 @@ class SSHDeploy:
                 time.sleep(self.SSH_CONNECT_WAITTIME)
         raise SSHDeployException("ssh connect Failed!!!\t{0}:{1}".format(instance.ip_address, self.ssh_endpoint))
 
-    def deploy_molns_webserver(self, instance, controller_obj):
+    def deploy_molns_webserver(self, instance, controller_obj, openWebBrowser=True):
         ip_address = instance.ip_address
-        logging.debug('deploy_molns_webserver(): controller_obj.provider.type={0}\n',controller_obj.provider.type)
+        logging.debug('deploy_molns_webserver(): openWebBrowser={0}, controller_obj.provider.type={1}\n',
+                      openWebBrowser, controller_obj.provider.type)
 
         if controller_obj.provider.type == Constants.DockerProvider:
             ip_address = "0.0.0.0:{0}".format(controller_obj.config["web_server_port"])
@@ -275,17 +280,19 @@ class SSHDeploy:
             self.ssh.close()
             print "Deploying MOLNs webserver"
             url = "http://{0}/".format(ip_address)
-            while True:
-                try:
-                    req = urllib2.urlopen(url)
-                    sys.stdout.write("\n")
-                    sys.stdout.flush()
-                    break
-                except Exception as e:
-                    sys.stdout.write(".")
-                    sys.stdout.flush()
-                    time.sleep(1)
-            webbrowser.open(url)
+            if openWebBrowser:
+                while True:
+                    try:
+                        req = urllib2.urlopen(url)
+                        sys.stdout.write("\n")
+                        sys.stdout.flush()
+                        break
+                    except Exception as e:
+                        #sys.stdout.write("{0}".format(e))
+                        sys.stdout.write(".")
+                        sys.stdout.flush()
+                        time.sleep(1)
+                webbrowser.open(url)
         except Exception as e:
             print "Failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
             raise sys.exc_info()[1], None, sys.exc_info()[2]
@@ -298,6 +305,134 @@ class SSHDeploy:
         except Exception as e:
             raise SSHDeployException("Could not determine the number of processors on the remote system: {0}".format(e))
 
+    def deploy_remote_execution_job(self, ip_address, jobID, exec_str):
+        base_path = "{0}/{1}".format(self.REMOTE_EXEC_JOB_PATH,jobID)
+        EXEC_HELPER_FILENAME = 'molns_exec_helper.py'
+        try:
+            self.connect(ip_address, self.ssh_endpoint)
+            # parse command, retreive files to upload (iff they are in the local directory)
+            # create remote direct=ory
+            self.ssh.exec_command("sudo mkdir -p {0}".format(base_path))
+            self.ssh.exec_command("sudo chown ubuntu {0}".format(base_path))
+            self.ssh.exec_command("mkdir -p {0}/.molns/".format(base_path))
+            sftp = self.ssh.open_sftp()
+            # Parse exec_str to get job files
+            files_to_transfer = []
+            remote_command_list = []
+            for c in exec_str.split():
+                c2 = c
+                if c.startswith('~'):
+                    c2 = os.path.expanduser(c)
+                if os.path.isfile(c2):
+                    files_to_transfer.append(c2)
+                    remote_command_list.append(os.path.basename(c2))
+                else:
+                    remote_command_list.append(c)
+            # Transfer job files
+            for f in files_to_transfer:
+                logging.debug('Uploading file {0}'.format(f))
+                sftp.put(f, "{0}/{1}".format(base_path, os.path.basename(f)))
+            # Transfer helper file (to .molns subdirectory)
+            logging.debug('Uploading file {0}'.format(EXEC_HELPER_FILENAME))
+            sftp.put(
+                os.path.join(os.path.dirname(os.path.abspath(__file__)),EXEC_HELPER_FILENAME),
+                "{0}/.molns/{1}".format(base_path,EXEC_HELPER_FILENAME)
+                )
+            # Write 'cmd' file
+            remote_command = " ".join(remote_command_list)
+            logging.debug("Writing remote_command = {0}".format(remote_command))
+            cmd_file = sftp.file("{0}/.molns/{1}".format(base_path,'cmd'), 'w')
+            cmd_file.write(remote_command)
+            cmd_file.close()
+            # execute command
+            logging.debug("Executing command")
+            self.ssh.exec_command("cd {0};python {0}/.molns/{1} &".format(base_path, EXEC_HELPER_FILENAME))
+            self.ssh.close()
+        except Exception as e:
+            print "Remote execution failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
+            raise sys.exc_info()[1], None, sys.exc_info()[2]
+
+    def remote_execution_job_status(self, ip_address, jobID):
+        ''' Check the status of a remote process.
+        
+        Returns: Tuple with two elements: (Is_Running, Message)
+            Is_Running: bool    True if the process is running
+            Message: str        Description of the status
+        '''
+        base_path = "{0}/{1}".format(self.REMOTE_EXEC_JOB_PATH,jobID)
+        try:
+            self.connect(ip_address, self.ssh_endpoint)
+            sftp = self.ssh.open_sftp()
+            # Does the 'pid' file exists remotely?
+            try:
+                sftp.stat("{0}/.molns/pid".format(base_path))
+            except (IOError, OSError) as e:
+                self.ssh.close()
+                raise SSHDeployException("Remote process not started (pid file not found")
+            # Does the 'return_value' file exist?
+            try:
+                sftp.stat("{0}/.molns/return_value".format(base_path))
+                # Process is complete
+                return (False, "Remote process finished")
+            except (IOError, OSError) as e:
+                pass
+            # is the process running?
+            try:
+                self.ssh.exec_command("kill -0 `cat {0}/.molns/pid` > /dev/null 2&>1".format(base_path))
+                return (True, "Remote process running")
+            except SSHDeployException as e:
+                raise SSHDeployException("Remote process not running (process not found)")
+            finally:
+                self.ssh.close()
+        except Exception as e:
+            print "Remote execution failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
+            raise sys.exc_info()[1], None, sys.exc_info()[2]
+
+    def remote_execution_get_job_logs(self, ip_address, jobID, seek):
+        base_path = "{0}/{1}".format(self.REMOTE_EXEC_JOB_PATH,jobID)
+        try:
+            self.connect(ip_address, self.ssh_endpoint)
+            sftp = self.ssh.open_sftp()
+            log = sftp.file("{0}/.molns/stdout".format(base_path), 'r')
+            log.seek(seek)
+            output = log.read()
+            self.ssh.close()
+            return output
+        except Exception as e:
+            print "Remote execution failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
+            raise sys.exc_info()[1], None, sys.exc_info()[2]
+
+    def remote_execution_delete_job(self, ip_address, jobID):
+        base_path = "{0}/{1}".format(self.REMOTE_EXEC_JOB_PATH,jobID)
+        try:
+            self.connect(ip_address, self.ssh_endpoint)
+            ### If process is still running, terminate it
+            try:
+                self.ssh.exec_command("kill -TERM `cat {0}/.molns/pid` > /dev/null 2&>1".format(base_path))
+            except Exception as e:
+                pass
+            ### Remove the filess on the remote server
+            self.ssh.exec_command("rm -rf {0}/* {0}/.molns*".format(base_path))
+            self.ssh.exec_command("sudo rmdir {0}".format(base_path))
+            self.ssh.close()
+        except Exception as e:
+            print "Remote execution failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
+            raise sys.exc_info()[1], None, sys.exc_info()[2]
+
+    def remote_execution_fetch_file(self, ip_address, jobID, filename, localfilename):
+        base_path = "{0}/{1}".format(self.REMOTE_EXEC_JOB_PATH,jobID)
+        try:
+            self.connect(ip_address, self.ssh_endpoint)
+            sftp = self.ssh.open_sftp()
+            sftp.get("{0}/{1}".format(base_path, filename), localfilename)
+            self.ssh.close()
+        except Exception as e:
+            print "Remote execution failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
+            raise sys.exc_info()[1], None, sys.exc_info()[2]
+
+
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     def deploy_stochss(self, ip_address, port=1443):
         try:
             print "{0}:{1}".format(ip_address, self.ssh_endpoint)
@@ -375,9 +510,11 @@ class SSHDeploy:
         # Give user ubuntu permission to access file.
         self.ssh.exec_command("sudo chown ubuntu:ubuntu {0}".format(remote_file_abs_path))
 
-    def deploy_ipython_controller(self, instance, controller_obj, notebook_password=None, resume=False):
+    def deploy_ipython_controller(self, instance, controller_obj, notebook_password=None, reserved_cpus=2,
+                                  resume=False):
         ip_address = instance.ip_address
 
+        logging.debug('deploy_ipython_controller(ip_address={0}, reserved_cpus={1})'.format(ip_address, reserved_cpus))
         try:
             print "{0}:{1}".format(ip_address, self.ssh_endpoint)
             self.connect(instance, self.ssh_endpoint)
@@ -426,9 +563,17 @@ class SSHDeploy:
                     "source /usr/local/pyurdme/pyurdme_init; screen -d -m ipcontroller --profile={1} --ip='*' --location={0} "
                     "--port={2}--log-to-file".format(
                         ip_address, self.profile, self.ipython_port), '\n')
+                # Give the controller time to startup
+                import time
+                logging.debug('Waiting 5 seconds for the IPython controller to start.')
+                time.sleep(5)
+
                 # Start one ipengine per processor
                 num_procs = self.get_number_processors()
-                num_engines = num_procs - 2
+                num_engines = num_procs - reserved_cpus
+                logging.debug(
+                    'Starting {0} engines (#cpu={1}, reserved_cpus={2})'.format(num_engines, num_procs, reserved_cpus))
+
                 for _ in range(num_engines):
                     self.ssh.exec_command(
                         "{1}source /usr/local/pyurdme/; screen -d -m ipengine --profile={0} --debug".format(
@@ -454,7 +599,6 @@ class SSHDeploy:
             self.ssh.exec_command(
                 "sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport {0} -j REDIRECT --to-port {1}".format(
                     Constants.DEFAULT_PUBLIC_NOTEBOOK_PORT, Constants.DEFAULT_PRIVATE_NOTEBOOK_PORT))
-
         except Exception as e:
             print "Failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
             raise sys.exc_info()[1], None, sys.exc_info()[2]

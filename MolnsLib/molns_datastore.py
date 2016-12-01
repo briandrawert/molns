@@ -7,6 +7,8 @@ from sqlalchemy.orm import sessionmaker
 import os
 import logging
 import sys
+import uuid
+import datetime
 #############################################################
 VALID_PROVIDER_TYPES = ['OpenStack', 'EC2', 'Eucalyptus', 'Docker']
 #############################################################
@@ -94,6 +96,18 @@ class Instance(Base):
     def __str__(self):
         return "Instance({0}): provider_instance_identifier={1} provider_id={2} controller_id={3} worker_group_id={4}".format(self.id, self.provider_instance_identifier, self.provider_id, self.controller_id, self.worker_group_id)
 
+class ExecJob(Base):
+    """ DB object for MOLNS exec jobs. """
+    __tablename__ = 'jobs'
+    id = Column(Integer, Sequence('instance_id_seq'), primary_key=True)
+    controller_id = Column(Integer)
+    exec_str = Column(String)
+    jobID = Column(String)
+    date = Column(String)
+
+    def __str__(self):
+        return "ExecJob({0}): jobID={1} controller_id={2}, exec_str={3}".format(self.id, self.jobID, self.controller_id, self.exec_str)
+
 
 class DatastoreException(Exception):
     pass
@@ -122,7 +136,8 @@ def get_provider_handle(kind, ptype):
     if kind not in valid_handles:
         raise DatastoreException("Unknown kind {0}".format(kind))
     if ptype not in VALID_PROVIDER_TYPES:
-        raise DatastoreException("Unknown {1} type {0}".format(ptype, kind))
+        return None
+        #raise DatastoreException("Unknown {1} type {0}".format(ptype, kind))
     cls_name = "{0}{1}".format(ptype, kind)
     pkg_name = "MolnsLib.{0}Provider".format(ptype)
     if pkg_name not in sys.modules:
@@ -272,6 +287,8 @@ class Datastore():
 
         p_handle = get_provider_handle(kind, ptype)
         #logging.debug("{2}(name={0}, data={1})".format(name,data,p_handle))
+        if p_handle is None:
+            return None
         ret = p_handle(name=p.name, config=data, config_dir=self.config_dir)
         ret.id = p.id
         ret.datastore = self
@@ -392,6 +409,44 @@ class Datastore():
         #logging.debug("Deleting instance: {0}".format(instance))
         self.session.delete(instance)
         self.session.commit()
+
+    def get_all_jobs(self, controller_id=None):
+        if controller_id is not None:
+            #logging.debug("get_all_instances by controller_id={0}".format(controller_id))
+            ret = self.session.query(ExecJob).filter_by(controller_id=controller_id).all()
+        else:
+            ret = self.session.query(ExecJob).all()
+        if ret is None:
+            return []
+        else:
+            return ret
+
+    def get_job(self,  jobID):
+        """ Get the objet for a job. """
+        #logging.debug("get_job(jobID={0})".format(jobID))
+        try:
+            id = int(jobID)
+            j = self.session.query(ExecJob).filter_by(id=id).first()
+        except Exception:
+            j = self.session.query(ExecJob).filter_by(jobID=jobID).first()
+        if j is None:
+            raise DatastoreException("Job {0} not found".format(jobID))
+        return j
+    
+    def start_job(self,  controller_id=None, exec_str=None):
+        """ Create the objet for a job. """
+        date_str = str(datetime.datetime.now())
+        jobID = str(uuid.uuid4())
+        j = ExecJob(jobID=jobID, controller_id=controller_id, exec_str=exec_str, date=date_str)
+        self.session.add(j)
+        self.session.commit()
+        logging.debug("Creating ExecJob: {0}".format(j))
+        return j
+
+    def delete_job(self, job):
+        self.session.delete(job)
+        self.session.commit()
+
 
 
 
