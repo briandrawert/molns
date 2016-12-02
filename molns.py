@@ -321,20 +321,22 @@ class MOLNSController(MOLNSbase):
         instance_list = config.get_controller_instances(controller_id=controller_obj.id)
 
         # Check if they are running
-        ip = None
+        inst = None
         if len(instance_list) > 0:
             for i in instance_list:
                 status = controller_obj.get_instance_status(i)
                 logging.debug("instance={0} has status={1}".format(i, status))
                 if status == controller_obj.STATUS_RUNNING:
-                    ip = i.ip_address
-        if ip is None:
+                    inst = i
+        if inst is None:
             raise MOLNSException("No active instance for this controller")
 
         file_to_transfer = args[1]
         logging.debug("File to transfer: {0}".format(file_to_transfer))
 
-        remote_file_path = "/home/ubuntu/"
+        remote_file_path = os.path.join("/home/ubuntu/", os.path.basename(file_to_transfer))
+
+        controller_obj.ssh.connect(inst, SSHDeploy.DEFAULT_SSH_PORT, "ubuntu", controller_obj.provider.sshkeyfilename())
 
         sftp = controller_obj.ssh.open_sftp()
         remote_fh = sftp.file(remote_file_path, "w")
@@ -345,7 +347,7 @@ class MOLNSController(MOLNSbase):
             remote_fh.close()
             sftp.close()
 
-        print "Transferred {0} to {1}:{2}".format(file_to_transfer, ip, remote_file_path)
+        print "Transferred {0} to {1}@{2}:{3}".format(file_to_transfer, inst.ip_address, "ubuntu", remote_file_path)
 
     @classmethod
     def get_controller(cls, args, config):
@@ -355,8 +357,8 @@ class MOLNSController(MOLNSbase):
         if controller_obj is None:
             return
 
-        if controller_obj.provider_type == constants.Constants.DockerProvider:
-            raise NotImplementedError("Docker provider does not support this feature yet.")
+        if controller_obj.provider.type == constants.Constants.DockerProvider:
+            raise NotImplementedError("DockerController does not support this feature yet.")
 
         # Check if any instances are assigned to this controller
         instance_list = config.get_controller_instances(controller_id=controller_obj.id)
@@ -372,7 +374,8 @@ class MOLNSController(MOLNSbase):
         if ip is None:
             print "No active instance for this controller"
             return
-        cmd = ['/usr/bin/scp','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(), 'ubuntu@{0}:{1}'.format(ip, args[1]), '.']
+        cmd = ['/usr/bin/scp','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',
+               controller_obj.provider.sshkeyfilename(), 'ubuntu@{0}:{1}'.format(ip, args[1]), '.']
         print " ".join(cmd)
         subprocess.call(cmd)
         print "SSH process completed"
@@ -389,20 +392,22 @@ class MOLNSController(MOLNSbase):
         instance_list = config.get_controller_instances(controller_id=controller_obj.id)
 
         # Check if they are running
-        ip = None
+        inst = None
         if len(instance_list) > 0:
             for i in instance_list:
                 status = controller_obj.get_instance_status(i)
                 logging.debug("instance={0} has status={1}".format(i, status))
                 if status == controller_obj.STATUS_RUNNING:
-                    ip = i.ip_address
-        if ip is None:
+                    inst = i
+        if inst is None:
             raise MOLNSException("No active instance for this controller")
 
         file_to_transfer = args[1]
         logging.debug("File to transfer: {0}".format(file_to_transfer))
 
-        remote_file_path = "/home/ubuntu/shared"
+        remote_file_path = os.path.join("/home/ubuntu/shared", os.path.basename(file_to_transfer))
+
+        controller_obj.ssh.connect(inst, SSHDeploy.DEFAULT_SSH_PORT, "ubuntu", controller_obj.provider.sshkeyfilename())
 
         sftp = controller_obj.ssh.open_sftp()
         remote_fh = sftp.file(remote_file_path, "w")
@@ -413,7 +418,7 @@ class MOLNSController(MOLNSbase):
             remote_fh.close()
             sftp.close()
 
-        print "Transferred {0} to {1}:{2}".format(file_to_transfer, ip, remote_file_path)
+        print "Transferred {0} to {1}@{2}:{3}".format(file_to_transfer, inst.ip_address, "ubuntu", remote_file_path)
 
     @classmethod
     def is_controller_running(cls, args, config):
@@ -1814,5 +1819,5 @@ def parse_args():
 if __name__ == "__main__":
     logger = logging.getLogger()
     #logger.setLevel(logging.INFO)  #for Debugging
-    logger.setLevel(logging.CRITICAL)
+    logger.setLevel(logging.DEBUG)
     parse_args()

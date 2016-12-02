@@ -493,7 +493,7 @@ class SSHDeploy:
             return
 
         if not os.access(local_ssh_key_file_path, os.R_OK):
-            print "Skipping transfer of SSH key file. (Read access denied.) Cluster executions will not be possible."
+            print "Skipping transfer of SSH key file."
             return
 
         # Transfer secret key file.

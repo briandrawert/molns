@@ -71,23 +71,25 @@ class MockSFTPFile:
         import uuid
         rand_str = str(uuid.uuid4())
         temp_tar = "transport-{0}.tar".format(rand_str[:8])
-        tar = tarfile.TarFile(temp_tar, "w")
-        string = StringIO.StringIO()
-        string.write(self.file_contents)
-        string.seek(0)
-        tar_file_info = tarfile.TarInfo(name=os.path.basename(self.filename))
-        tar_file_info.size = len(string.buf)
-        tar.addfile(tarinfo=tar_file_info, fileobj=string)
-        tar.close()
+        try:
+            tar = tarfile.TarFile(temp_tar, "w")
+            string = StringIO.StringIO()
+            string.write(self.file_contents)
+            string.seek(0)
+            tar_file_info = tarfile.TarInfo(name=os.path.basename(self.filename))
+            tar_file_info.size = len(string.buf)
+            tar.addfile(tarinfo=tar_file_info, fileobj=string)
+            tar.close()
 
-        path_to_file = os.path.dirname(self.filename)
+            path_to_file = os.path.dirname(self.filename)
 
-        if not path_to_file.startswith("/home"):
-            path_to_file = os.path.join(self.docker.get_home_directory(self.container_id), path_to_file)
+            if not path_to_file.startswith("/home"):
+                path_to_file = os.path.join(self.docker.get_home_directory(self.container_id), path_to_file)
 
-        with open(temp_tar, mode='rb') as f:
-            tar_file_bytes = f.read()
+            with open(temp_tar, mode='rb') as f:
+                tar_file_bytes = f.read()
 
-        #  print("path to file: {0}".format(path_to_file))
-        self.docker.put_archive(self.container_id, tar_file_bytes, path_to_file)
-        os.remove(temp_tar)  # Remove temporary tar file.
+            # print("path to file: {0}".format(path_to_file))
+            self.docker.put_archive(self.container_id, tar_file_bytes, path_to_file)
+        finally:
+            os.remove(temp_tar)  # Remove temporary tar file.
