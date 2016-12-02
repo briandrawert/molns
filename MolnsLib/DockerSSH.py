@@ -64,6 +64,8 @@ class MockSFTPFile:
             #  print("WARNING Unrecognized file mode. Filename: {0}, Flag: {1}".format(filename, flag))
 
     def write(self, write_this):
+        if type(write_this) is not str:
+            raise TypeError("Expecting type str")
         self.file_contents += write_this
 
     def close(self):

@@ -315,10 +315,11 @@ class MOLNSController(MOLNSbase):
         """ Copy a local file to the controller's home directory. """
         logging.debug("MOLNSController.upload_controller(args={0})".format(args))
         controller_obj = cls._get_controllerobj(args, config)
-        if controller_obj is None: return
+        if controller_obj is None:
+            return
         # Check if any instances are assigned to this controller
         instance_list = config.get_controller_instances(controller_id=controller_obj.id)
-        # logging.debug("instance_list={0}".format(instance_list))
+
         # Check if they are running
         ip = None
         if len(instance_list) > 0:
@@ -329,23 +330,37 @@ class MOLNSController(MOLNSbase):
                     ip = i.ip_address
         if ip is None:
             raise MOLNSException("No active instance for this controller")
-        #print " ".join(['/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip)])
-        #os.execl('/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip))
-        cmd = ['/usr/bin/scp','-r','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',
-               controller_obj.provider.sshkeyfilename(), args[1], 'ubuntu@{0}:/home/ubuntu/'.format(ip)]
-        print " ".join(cmd)
-        subprocess.call(cmd)
-        print "SCP process completed"
+
+        file_to_transfer = args[1]
+        logging.debug("File to transfer: {0}".format(file_to_transfer))
+
+        remote_file_path = "/home/ubuntu/"
+
+        sftp = controller_obj.ssh.open_sftp()
+        remote_fh = sftp.file(remote_file_path, "w")
+        try:
+            with open(file_to_transfer, "r") as fh:
+                remote_fh.write(fh.read())
+        finally:
+            remote_fh.close()
+            sftp.close()
+
+        print "Transferred {0} to {1}:{2}".format(file_to_transfer, ip, remote_file_path)
 
     @classmethod
     def get_controller(cls, args, config):
         """ Copy a controller's file to the local filesystem. """
-        logging.debug("MOLNSController.put_controller(args={0})".format(args))
+        logging.debug("MOLNSController.get_controller(args={0})".format(args))
         controller_obj = cls._get_controllerobj(args, config)
-        if controller_obj is None: return
+        if controller_obj is None:
+            return
+
+        if controller_obj.provider_type == constants.Constants.DockerProvider:
+            raise NotImplementedError("Docker provider does not support this feature yet.")
+
         # Check if any instances are assigned to this controller
         instance_list = config.get_controller_instances(controller_id=controller_obj.id)
-        #logging.debug("instance_list={0}".format(instance_list))
+
         # Check if they are running
         ip = None
         if len(instance_list) > 0:
@@ -357,8 +372,6 @@ class MOLNSController(MOLNSbase):
         if ip is None:
             print "No active instance for this controller"
             return
-        #print " ".join(['/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip)])
-        #os.execl('/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip))
         cmd = ['/usr/bin/scp','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(), 'ubuntu@{0}:{1}'.format(ip, args[1]), '.']
         print " ".join(cmd)
         subprocess.call(cmd)
@@ -369,10 +382,12 @@ class MOLNSController(MOLNSbase):
         """ Copy a local file to the controller's and workers' shared area. """
         logging.debug("MOLNSController.put_controller(args={0})".format(args))
         controller_obj = cls._get_controllerobj(args, config)
-        if controller_obj is None: return
+        if controller_obj is None:
+            return
+
         # Check if any instances are assigned to this controller
         instance_list = config.get_controller_instances(controller_id=controller_obj.id)
-        # logging.debug("instance_list={0}".format(instance_list))
+
         # Check if they are running
         ip = None
         if len(instance_list) > 0:
@@ -383,13 +398,22 @@ class MOLNSController(MOLNSbase):
                     ip = i.ip_address
         if ip is None:
             raise MOLNSException("No active instance for this controller")
-        #print " ".join(['/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip)])
-        #os.execl('/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip))
-        cmd = ['/usr/bin/scp','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',
-               controller_obj.provider.sshkeyfilename(), args[1], 'ubuntu@{0}:/home/ubuntu/shared'.format(ip)]
-        print " ".join(cmd)
-        subprocess.call(cmd)
-        print "SSH process completed"
+
+        file_to_transfer = args[1]
+        logging.debug("File to transfer: {0}".format(file_to_transfer))
+
+        remote_file_path = "/home/ubuntu/shared"
+
+        sftp = controller_obj.ssh.open_sftp()
+        remote_fh = sftp.file(remote_file_path, "w")
+        try:
+            with open(file_to_transfer, "r") as fh:
+                remote_fh.write(fh.read())
+        finally:
+            remote_fh.close()
+            sftp.close()
+
+        print "Transferred {0} to {1}:{2}".format(file_to_transfer, ip, remote_file_path)
 
     @classmethod
     def is_controller_running(cls, args, config):
@@ -1686,9 +1710,9 @@ COMMAND_LIST = [
                 function=MOLNSWorkerGroup.add_worker_groups),
         Command('status', {'name': None},
                 function=MOLNSWorkerGroup.status_worker_groups),
-            Command('stop', {'name':None},
+        Command('stop', {'name':None},
                 function=MOLNSWorkerGroup.terminate_worker_groups),
-            Command('terminate', {'name':None},
+        Command('terminate', {'name':None},
                 function=MOLNSWorkerGroup.terminate_worker_groups),
         Command('export', {'name': None},
                 function=MOLNSWorkerGroup.worker_group_export),
