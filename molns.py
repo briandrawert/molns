@@ -390,14 +390,18 @@ class MOLNSController(MOLNSbase):
             if len(instance_list) > 0:
                 table_data = []
                 for i in instance_list:
-                    provider_name = config.get_object_by_id(i.provider_id, 'Provider').name
-                    controller_name = config.get_object_by_id(i.controller_id, 'Controller').name
-                    if i.worker_group_id is not None:
-                        worker_name = config.get_object_by_id(i.worker_group_id, 'WorkerGroup').name
-                        table_data.append([worker_name, 'worker', provider_name, i.provider_instance_identifier])
-                    else:
-                        table_data.append([controller_name, 'controller', provider_name, i.provider_instance_identifier])
+                    try:
+                        provider_name = config.get_object_by_id(i.provider_id, 'Provider').name
+                        controller_name = config.get_object_by_id(i.controller_id, 'Controller').name
+                        if i.worker_group_id is not None:
+                            worker_name = config.get_object_by_id(i.worker_group_id, 'WorkerGroup').name
+                            table_data.append([worker_name, 'worker', provider_name, i.provider_instance_identifier])
+                        else:
+                            table_data.append([controller_name, 'controller', provider_name, i.provider_instance_identifier])
+                    except Exception as e:
+                        logging.debug("Caught Exception: {0}".format(e))
 
+            if len(table_data) > 0:
                 r = {'type':'table', 'column_names':['name','type','provider','instance id'], 'data':table_data}
                 r['msg']= "\n\tUse 'molns status NAME' to see current status of each instance."
                 return r
