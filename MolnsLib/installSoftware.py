@@ -95,7 +95,7 @@ class InstallSW:
             "cd /usr/local/ode/ && STOCHKIT_HOME=/usr/local/StochKit/ STOCHKIT_ODE=/usr/local/ode/ make 1>stdout.log 2>stderr.log",
          
             "sudo rm -rf /usr/local/gillespy;sudo mkdir -p /usr/local/gillespy;sudo chown ubuntu /usr/local/gillespy",
-            "cd /usr/local/ && git clone https://github.com/MOLNs/gillespy.git",
+            "cd /usr/local/ && git clone https://github.com/briandrawert/gillespy.git",
             "cd /usr/local/gillespy && sudo STOCHKIT_HOME=/usr/local/StochKit/ STOCHKIT_ODE_HOME=/usr/local/ode/ python setup.py install"
 
         ],
