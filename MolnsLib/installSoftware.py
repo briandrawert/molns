@@ -40,7 +40,7 @@ class InstallSW:
         "sudo pip install dill cloud pygments",
         "sudo pip install tornado Jinja2",
                   
-        # Molnsutil
+        # Molnsutil develop
         [
             "sudo pip install jsonschema jsonpointer",
             # EC2/S3 and OpenStack APIs
@@ -53,10 +53,21 @@ class InstallSW:
             "sudo pip install python-keystoneclient",
             "sudo pip install python-swiftclient",
         ],
-        # TODO pip install molnsutil while building image
         [
-         "sudo rm -rf /usr/local/molnsutil;sudo mkdir -p /usr/local/molnsutil;sudo chown ubuntu /usr/local/molnsutil",
-         "cd /usr/local/ && git clone https://github.com/aviral26/molnsutil.git && cd /usr/local/molnsutil && git checkout qsub_support"
+            "sudo rm -rf /usr/local/molnsutil;sudo mkdir -p /usr/local/molnsutil;sudo chown ubuntu /usr/local/molnsutil",
+            "cd /usr/local/ && git clone https://github.com/aviral26/molnsutil.git && cd /usr/local/molnsutil && git checkout qsub_support"
+        ],
+
+        # Molns develop
+        [
+            "sudo rm -rf /usr/local/molns;sudo mkdir -p /usr/local/molns;sudo chown ubuntu /usr/local/molns",
+            "cd /usr/local/ && git clone https://github.com/aviral26/molns.git && cd /usr/local/molns"
+        ],
+
+        # Cluster execution
+        [
+            "sudo rm -rf /usr/local/cluster_execution;sudo mkdir -p /usr/local/cluster_execution;sudo chown ubuntu /usr/local/cluster_execution",
+            "cd /usr/local/ && git clone https://github.com/aviral26/cluster_execution.git"
         ],
 
         # So the workers can mount the controller via SSHfs
@@ -108,7 +119,7 @@ class InstallSW:
             "sudo apt-get install -y gmsh",
         ],
 
-        ["sudo apt-get install docker", "sudo pip install docker-py", "sudo pip install sqlalchemy",
+        ["sudo apt-get install docker", "sudo pip install docker", "sudo pip install sqlalchemy",
          "sudo pip install boto", "sudo pip install python-novaclient", "sudo pip install paramiko"],
         # pyurdme
         [   "sudo rm -rf /usr/local/pyurdme && sudo mkdir -p /usr/local/pyurdme && sudo chown ubuntu /usr/local/pyurdme",

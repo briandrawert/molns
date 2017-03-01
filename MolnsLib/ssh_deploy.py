@@ -588,14 +588,9 @@ class SSHDeploy:
                         self.profile))
 
             # TODO remove next three commands after testing. Put them in the image instead.
-            # Install cluster_execution
-            self.ssh.exec_command("git clone https://github.com/aviral26/cluster_execution.git")
-
-            # Install molns
-            self.ssh.exec_command("git clone https://github.com/aviral26/molns.git")
-
-            # Temporary command until new image is created to use latest molnsutil. TODO pip install molnsutil
-            self.ssh.exec_command("cd /usr/local/molnsutil; git checkout qsub_support; git pull")
+            # self.ssh.exec_command("git clone https://github.com/aviral26/cluster_execution.git")
+            # self.ssh.exec_command("git clone https://github.com/aviral26/molns.git")
+            # self.ssh.exec_command("cd /usr/local/molnsutil; git checkout qsub_support; git pull")
 
             self.ssh.exec_command(
                 "sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport {0} -j REDIRECT --to-port {1}".format(
