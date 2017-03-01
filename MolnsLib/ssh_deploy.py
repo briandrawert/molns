@@ -653,7 +653,7 @@ class SSHDeploy:
             self.create_s3_config()
 
             # SSH mount the controller on each engine
-            remote_file_name = '.ssh/id_dsa'
+            remote_file_name='/home/ubuntu/.ssh/controller_ssh_key'
             with open(controller_ssh_keyfile) as fd:
                 sftp = self.ssh.open_sftp()
                 controller_keyfile = sftp.file(remote_file_name, 'w')
@@ -663,11 +663,10 @@ class SSHDeploy:
                 controller_keyfile.close()
                 print "Remote file {0} has {1} bytes".format(remote_file_name, sftp.stat(remote_file_name).st_size)
                 sftp.close()
-            self.ssh.exec_command("chmod 0600 {0}".format(remote_file_name))
-            self.ssh.exec_command("mkdir -p /home/ubuntu/shared")
-            self.ssh.exec_command(
-                "sshfs -o Ciphers=arcfour -o Compression=no -o reconnect -o idmap=user -o StrictHostKeyChecking=no ubuntu@{0}:/mnt/molnsshared /home/ubuntu/shared".format(
-                    controler_ip))
+            self.exec_command("chmod 0600 {0}".format(remote_file_name))
+            self.exec_command("sudo rm -rf {0}".format('/home/ubuntu/shared'))
+            self.exec_command("mkdir -p /home/ubuntu/shared")
+            self.exec_command("sshfs -o IdentityFile={1} -o Ciphers=arcfour -o Compression=no -o reconnect -o idmap=user -o StrictHostKeyChecking=no ubuntu@{0}:/mnt/molnsshared /home/ubuntu/shared".format(controler_ip,remote_file_name))
 
             # Update the Molnsutil package: TODO remove when molns_util is stable
             # self.exec_command("cd /usr/local/molns_util && git pull && sudo python setup.py install")

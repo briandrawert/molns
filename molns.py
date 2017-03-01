@@ -1316,7 +1316,7 @@ class MOLNSInstances(MOLNSbase):
                 provider_name = provider_obj.name
                 #print "provider_obj.type",provider_obj.type
                 if i.worker_group_id is not None:
-                    name = config.get_object_by_id(i.worker_id, 'WorkerGroup').name
+                    name = config.get_object_by_id(i.worker_group_id, 'WorkerGroup').name
                     itype = 'worker'
                 else:
                     name = config.get_object_by_id(i.controller_id, 'Controller').name
