@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 import time
 import constants
@@ -25,7 +26,10 @@ class DockerProxy:
             super("Something went wrong while building docker container image.\n{0}".format(message))
 
     def __init__(self):
-        self.client = Client(base_url=Constants.DOCKER_BASE_URL)
+        if os.environ.get('DOCKER_HOST') is not None:
+            self.client = Client(base_url=os.environ.get('DOCKER_HOST'))
+        else:
+            self.client = Client(base_url=Constants.DOCKER_BASE_URL)
         self.build_count = 0
         logging.basicConfig(level=logging.DEBUG)
 
