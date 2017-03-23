@@ -562,7 +562,7 @@ class SSHDeploy:
             if controller_obj.provider.type != Constants.DockerProvider:
                 self.ssh.exec_command(
                     "source /usr/local/pyurdme/pyurdme_init; screen -d -m ipcontroller --profile={1} --ip='*' --location={0} "
-                    "--port={2}--log-to-file".format(
+                    "--port={2} --log-to-file".format(
                         ip_address, self.profile, self.ipython_port), '\n')
                 # Give the controller time to startup
                 import time
