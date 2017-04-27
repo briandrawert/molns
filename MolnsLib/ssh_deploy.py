@@ -374,7 +374,8 @@ class SSHDeploy:
             self.exec_command(create_and_exchange_admin_token)
 
             print "Starting StochSS"
-            self.exec_command("cd /usr/local/stochss/ && screen -d -m ./run.ubuntu.sh --no_browser -t {0} -a {1}".format(admin_token, ip_address))
+            #self.exec_command("cd /usr/local/stochss/ && screen -d -m ./run.ubuntu.sh --no_browser -t {0} -a {1}".format(admin_token, ip_address))
+            self.exec_command("cd /usr/local/stochss/ && screen -d -m ./run.ubuntu.sh --no_browser -t {0} -a localhost".format(admin_token))
 
             print "Staring redirector from port 80"
             self.exec_command("cd /usr/local/stochss/utils/ && screen -d -m sudo python port80redirect.py")
