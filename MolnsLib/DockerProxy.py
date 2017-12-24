@@ -186,14 +186,19 @@ class DockerProxy:
     def image_exists(self, image_str):
         """Checks if an image with the given ID/tag exists locally."""
         docker_image = DockerImage.from_string(image_str)
+        logging.debug("DockerProxy.image_exists(image={0})".format(image_str))
+        logging.debug("DockerProxy.image_exists() docker_image.image_id={0}".format(docker_image.image_id))
 
         if docker_image.image_id is Constants.DockerNonExistentTag \
                 and docker_image.image_tag is Constants.DockerNonExistentTag:
+            logging.debug("DockerProxy.image_exists() raising 'raise InvalidDockerImageException'");
             raise InvalidDockerImageException("Neither image_id nor image_tag provided.")
 
         for image in self.client.images():
             some_id = image["Id"]
             some_tags = image["RepoTags"] or [None]
+            logging.debug("DockerProxy.image_exists() some_id={0}".format(some_id))
+            logging.debug("DockerProxy.image_exists() some_tags={0}".format(some_tags))
             if docker_image.image_id in \
                     some_id[:(Constants.DOCKER_PY_IMAGE_ID_PREFIX_LENGTH + Constants.DOKCER_IMAGE_ID_LENGTH)]:
                 return True
@@ -232,6 +237,7 @@ class DockerProxy:
     def get_home_directory(self, container_id):
         env_vars = self.client.inspect_container(container_id)["Config"]["Env"]
         home = [i for i in env_vars if i.startswith("HOME")]
+        logging.debug("DockerProxy.get_home_directory(container_id={0}) home={1}".format(container_id, home))
         return home[0].split("=")[1]
 
     def put_archive(self, container_id, tar_file_bytes, target_path_in_container):

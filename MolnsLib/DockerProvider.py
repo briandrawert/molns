@@ -91,7 +91,7 @@ class DockerProvider(DockerBase):
          {'q': 'Base Ubuntu image to use', 'default': constants.Constants.DOCKER_DEFAULT_IMAGE,
           'ask': True}),
         ('molns_image_name',
-         {'q': 'Local MOLNs image (Docker image ID or image tag) to use ', 'default': None, 'ask': True}),
+         {'q': 'Local MOLNs image (Docker image ID or image tag) to use ', 'default': 'briandrawert/molns-default-image:latest', 'ask': True}),
         ('key_name',
          {'q': 'Docker Key Pair name', 'default': "docker-default", 'ask': False}),  # Unused.
         ('group_name',
