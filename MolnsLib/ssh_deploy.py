@@ -105,8 +105,8 @@ class SSHDeploy:
                 sha1pass = sha1pass_out[0].strip()
             else:
                 sha1pass = sha1pass_out.strip()
-            Utils.Log.write_log("SHA1PASS_OUT: " + sha1pass_out)
-            Utils.Log.write_log("SHA1PASS: " + sha1pass)
+            logging.debug("SHA1PASS_OUT: " + sha1pass_out)
+            logging.debug("SHA1PASS: " + sha1pass)
         except Exception as e:
             print "Failed: {0}\t{1}:{2}".format(e, hostname, self.ssh_endpoint)
             raise e
@@ -153,6 +153,7 @@ class SSHDeploy:
         sftp.close()
 
     def create_s3_config(self):
+        self.ssh.exec_command("mkdir -p .molns/")
         sftp = self.ssh.open_sftp()
         remote_file_name = '.molns/s3.json'
         s3_config_file = sftp.file(remote_file_name, 'w')
@@ -250,12 +251,12 @@ class SSHDeploy:
 
     def deploy_molns_webserver(self, instance, controller_obj, openWebBrowser=True):
         ip_address = instance.ip_address
-        logging.debug('deploy_molns_webserver(): openWebBrowser={0}, controller_obj.provider.type={1}\n',
-                      openWebBrowser, controller_obj.provider.type)
+        logging.debug('deploy_molns_webserver(): openWebBrowser={0}, controller_obj.provider.type={1}\n'.format(
+                      openWebBrowser, controller_obj.provider.type))
 
         if controller_obj.provider.type == Constants.DockerProvider:
             ip_address = "0.0.0.0:{0}".format(controller_obj.config["web_server_port"])
-        logging.debug('deploy_molns_webserver(): ip_address={0}\n',ip_address)
+        logging.debug('deploy_molns_webserver(): ip_address={0}\n'.format(ip_address))
 
         try:
             self.connect(instance, self.ssh_endpoint)
@@ -278,8 +279,8 @@ class SSHDeploy:
                 "sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport {0} -j REDIRECT --to-port {1}".format(
                     Constants.DEFAULT_PUBLIC_WEBSERVER_PORT, Constants.DEFAULT_PRIVATE_WEBSERVER_PORT))
             self.ssh.close()
-            print "Deploying MOLNs webserver"
             url = "http://{0}/".format(ip_address)
+            print "Deploying MOLNs webserver at {0}".format(url)
             if openWebBrowser:
                 while True:
                     try:
@@ -456,7 +457,7 @@ class SSHDeploy:
             self.ssh.exec_command("sudo nginx")
 
             print "Modifying StochSS to not open a webbrowser (TODO: move to install)"
-            self.ssh.exec_command("sed -i 's/webbrowser.open_new(stochss_url)/pass/' /usr/local/stochss/run.ubuntu.sh")
+            self.ssh.exec_command("sed -i 's/webbrowser.open_new(stochss_url)/pass/' /usr/local/stochss/launchapp.py")
 
             print "Starting StochSS"
             self.ssh.exec_command("cd /usr/local/stochss/ && screen -d -m ./run.ubuntu.sh")
@@ -552,10 +553,10 @@ class SSHDeploy:
                 self.create_ipython_config(ip_address, notebook_password)
                 self.create_engine_config()
                 self.__transfer_cluster_ssh_key_file(remote_target_dir=home_dir, controller_obj=controller_obj)
-                if controller_obj.provider.type == Constants.DockerProvider:
-                    self.ssh.exec_command("mv {0}*.ipynb {1}".format(home_dir,
-                                                                     DockerProxy.get_container_volume_from_working_dir(
-                                                                         controller_obj.config["working_directory"])))
+                #if controller_obj.provider.type == Constants.DockerProvider:
+                #    self.ssh.exec_command("mv {0}*.ipynb {1}".format(home_dir,
+                #                                                     DockerProxy.get_container_volume_from_working_dir(
+                #                                                         controller_obj.config["working_directory"])))
 
             # If provider is Docker, then ipython controller and ipengines aren't started
 
@@ -583,18 +584,17 @@ class SSHDeploy:
                     "{1}source /usr/local/pyurdme/pyurdme_init; screen -d -m ipython notebook --profile={0}".format(
                         self.profile, self.ipengine_env))
             else:
+                #print "{1}source /usr/local/pyurdme/pyurdme_init; screen -d -m ipython notebook --profile={0} --port={2} --ip='*'".format(self.profile, self.ipengine_env,Constants.DEFAULT_PRIVATE_NOTEBOOK_PORT)
                 self.ssh.exec_command(
-                    "sudo pip install /usr/local/pyurdme/; screen -d -m ipython notebook --profile={0}".format(
-                        self.profile))
+                    "{1}source /usr/local/pyurdme/pyurdme_init; screen -d -m ipython notebook --profile={0} --port={2} --ip='*'".format(self.profile, self.ipengine_env,Constants.DEFAULT_PRIVATE_NOTEBOOK_PORT)
+                        )
 
-            # TODO remove next three commands after testing. Put them in the image instead.
-            # self.ssh.exec_command("git clone https://github.com/aviral26/cluster_execution.git")
-            # self.ssh.exec_command("git clone https://github.com/aviral26/molns.git")
-            # self.ssh.exec_command("cd /usr/local/molnsutil; git checkout qsub_support; git pull")
 
-            self.ssh.exec_command(
-                "sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport {0} -j REDIRECT --to-port {1}".format(
-                    Constants.DEFAULT_PUBLIC_NOTEBOOK_PORT, Constants.DEFAULT_PRIVATE_NOTEBOOK_PORT))
+            if controller_obj.provider.type != Constants.DockerProvider:
+                self.ssh.exec_command(
+                    "sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport {0} -j REDIRECT --to-port {1}".format(
+                        Constants.DEFAULT_PUBLIC_NOTEBOOK_PORT, Constants.DEFAULT_PRIVATE_NOTEBOOK_PORT))
+
         except Exception as e:
             print "Failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
             raise sys.exc_info()[1], None, sys.exc_info()[2]

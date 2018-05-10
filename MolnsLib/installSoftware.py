@@ -49,25 +49,25 @@ class InstallSW:
             # This set of packages is needed for OpenStack, as molns_util uses them for hybrid cloud deployment
             "sudo apt-get -y install libxml2-dev libxslt1-dev python-dev",
             "sudo pip install python-novaclient",
-            "sudo easy_install -U pip",
             "sudo pip install python-keystoneclient",
             "sudo pip install python-swiftclient",
         ],
         [
             "sudo rm -rf /usr/local/molnsutil;sudo mkdir -p /usr/local/molnsutil;sudo chown ubuntu /usr/local/molnsutil",
-            "cd /usr/local/ && git clone https://github.com/aviral26/molnsutil.git && cd /usr/local/molnsutil && git checkout qsub_support"
+            #"cd /usr/local/ && git clone https://github.com/briandrawert/molnsutil.git && cd /usr/local/molnsutil && git checkout qsub_support"
+            "cd /usr/local/ && git clone https://github.com/briandrawert/molnsutil.git"
         ],
 
         # Molns develop
         [
             "sudo rm -rf /usr/local/molns;sudo mkdir -p /usr/local/molns;sudo chown ubuntu /usr/local/molns",
-            "cd /usr/local/ && git clone https://github.com/aviral26/molns.git && cd /usr/local/molns"
+            "cd /usr/local/ && git clone https://github.com/briandrawert/molns.git && cd /usr/local/molns"
         ],
 
         # Cluster execution
         [
             "sudo rm -rf /usr/local/cluster_execution;sudo mkdir -p /usr/local/cluster_execution;sudo chown ubuntu /usr/local/cluster_execution",
-            "cd /usr/local/ && git clone https://github.com/aviral26/cluster_execution.git"
+            "cd /usr/local/ && git clone https://github.com/briandrawert/cluster_execution.git"
         ],
 
         # So the workers can mount the controller via SSHfs

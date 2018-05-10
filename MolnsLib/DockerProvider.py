@@ -73,8 +73,10 @@ class DockerBase(ProviderBase):
         if isinstance(instances, list):
             for instance in instances:
                 instance_ids.append(instance.provider_instance_identifier)
+                self.datastore.delete_instance(instance)
         else:
             instance_ids.append(instances.provider_instance_identifier)
+            self.datastore.delete_instance(instances)
         self.docker.terminate_containers(instance_ids)
 
     def exec_command(self, container_id, command):

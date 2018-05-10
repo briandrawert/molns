@@ -12,6 +12,9 @@ from docker.errors import NotFound, NullResource, APIError
 class InvalidVolumeName(Exception):
     pass
 
+class ExecuteCommandException(Exception):
+    pass
+
 
 class DockerProxy:
 
@@ -146,15 +149,14 @@ class DockerProxy:
         run_command = "/bin/bash -c \"" + command + "\""
         # print("CONTAINER: {0} COMMAND: {1}".format(container_id, run_command))
         if self.start_container(container_id) is False:
-            print (DockerProxy.LOG_TAG + "Could not start container.")
-            return None
+            raise ExecuteCommandException(DockerProxy.LOG_TAG + "Could not start container.")
+            #return None
         try:
             exec_instance = self.client.exec_create(container_id, run_command)
             response = self.client.exec_start(exec_instance)
             return [self.client.exec_inspect(exec_instance), response]
         except (NotFound, APIError) as e:
-            print (DockerProxy.LOG_TAG + " Could not execute command.", e)
-            return None
+            raise ExecuteCommandException(DockerProxy.LOG_TAG + " Could not execute command." + str(e))
 
     def build_image(self, dockerfile):
         """ Build image from given Dockerfile object and return ID of the image created. """
@@ -232,13 +234,22 @@ class DockerProxy:
         return ret_val
 
     def get_working_directory(self, container_id):
-        return self.client.inspect_container(container_id)["Config"]["WorkingDir"]
+        wd = self.client.inspect_container(container_id)["Config"]["WorkingDir"]
+        if len(wd)==0:
+            return '/'
+        return wd
 
     def get_home_directory(self, container_id):
-        env_vars = self.client.inspect_container(container_id)["Config"]["Env"]
-        home = [i for i in env_vars if i.startswith("HOME")]
-        logging.debug("DockerProxy.get_home_directory(container_id={0}) home={1}".format(container_id, home))
-        return home[0].split("=")[1]
+        try:
+            env_vars = self.client.inspect_container(container_id)["Config"]["Env"]
+            home = [i for i in env_vars if i.startswith("HOME")]
+            if len(home) == 0:
+                return self.get_working_directory(container_id)
+            logging.debug("DockerProxy.get_home_directory(container_id={0}) home={1}".format(container_id, home))
+            return home[0].split("=")[1]
+        except IndexError as e:
+            logging.debug("DockerProxy.get_home_directory(container_id={0}): {1} ".format(container_id,e))
+            return self.get_working_directory(container_id)
 
     def put_archive(self, container_id, tar_file_bytes, target_path_in_container):
         """ Copies and unpacks a given tarfile in the container at specified location.

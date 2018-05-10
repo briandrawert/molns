@@ -2,6 +2,7 @@ import StringIO
 import tarfile
 import os
 import re
+import paramiko
 
 
 # "unused" arguments to some methods are added to maintain compatibility with existing upper level APIs.
@@ -14,6 +15,8 @@ class DockerSSH(object):
     def exec_command(self, command, verbose=None):
         cmd = re.sub("\"", "\\\"", command)  # Escape all occurrences of ".
         ret_val, response = self.docker.execute_command(self.container_id, cmd)
+        if 'ExitCode' in ret_val and ret_val['ExitCode'] > 0:
+            raise paramiko.SSHException("DOckerSSH.exec_command({0}) exit_code={1}: {2}".format(command,ret_val['ExitCode'],response))
         return response
 
     def exec_multi_command(self, command, verbose=None):
