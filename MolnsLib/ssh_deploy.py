@@ -365,9 +365,6 @@ class SSHDeploy:
             self.exec_command("cd /mnt; git clone --recursive https://github.com/StochSS/stochss.git")
 
 
-            print "Checking out latest tutorial branch"
-            self.exec_command("cd /usr/local/stochss && git fetch && git checkout tutorial && git pull origin tutorial")
-
             print "Configuring StochSS"
             admin_token = uuid.uuid4()
             create_and_exchange_admin_token = "python /usr/local/stochss/generate_admin_token.py {0}".format(admin_token)
